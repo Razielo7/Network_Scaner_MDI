@@ -21,3 +21,8 @@ RUN a2enmod rewrite
 
 WORKDIR /var/www/html
 COPY . /var/www/html
+
+# Ensure Apache binds to Vercel-provided PORT at runtime
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+CMD ["/usr/local/bin/start.sh"]
