@@ -31,14 +31,17 @@
     }
 
     body {
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: hsl(var(--bg));
+      font-family: 'Outfit', sans-serif;
+      /* Background handled by #sky-bg */
+      background-color: transparent;
       color: hsl(var(--text));
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 2rem;
+      overflow-x: hidden;
+      /* Prevent horizontal scroll */
     }
 
     .container {
@@ -534,49 +537,14 @@
       font-size: 0.85rem;
     }
 
-    .di-sep {
-      width: 1px;
-      height: 16px;
-      background: hsl(var(--border) / 0.5);
-    }
-
-    :root {
-      --bg: 220 30% 8%;
-      --bg-card: 220 35% 13%;
-      --text: 210 40% 98%;
-      --text-muted: 215 20% 65%;
-      --accent-cyan: 190 100% 50%;
-      --accent-green: 150 100% 50%;
-      --accent-purple: 270 100% 65%;
-      --accent-blue: 210 100% 60%;
-      --accent-orange: 30 100% 60%;
-      --border: 220 25% 25%;
-      --error: 0 70% 50%;
-      --glass-bg: hsla(220, 25%, 15%, 0.4);
-      --glass-border: hsla(220, 25%, 25%, 0.3);
-    }
-
-    body {
-      font-family: 'Outfit', sans-serif;
-      background: radial-gradient(circle at top center, hsl(220, 30%, 15%), hsl(220, 40%, 5%));
-      color: hsl(var(--text));
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 2rem;
-      position: relative;
-      overflow-x: hidden;
-    }
-
     /* Small Start Button */
     .st-start-btn-small {
-      width: 42px;
-      height: 42px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
       border: 1px solid hsl(var(--accent-cyan));
-      background: transparent;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
       color: hsl(var(--accent-cyan));
       font-size: 0.75rem;
       font-weight: 700;
@@ -585,7 +553,7 @@
       align-items: center;
       justify-content: center;
       transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      box-shadow: 0 0 10px hsl(var(--accent-cyan) / 0.2);
+      box-shadow: 0 0 15px hsl(var(--accent-cyan) / 0.2);
     }
 
     .st-start-btn-small:hover {
@@ -611,19 +579,7 @@
       z-index: -1;
     }
 
-    /* Sky Background (handled by body, but enhanced here if needed) */
-
-    /* The water surface line (Horizon at ~45%) */
-    .sea-fill {
-      position: absolute;
-      top: 55%;
-      left: 0;
-      width: 100%;
-      height: 45%;
-      background: linear-gradient(to bottom, hsla(190, 80%, 20%, 0.6), hsla(220, 50%, 10%, 0.95));
-      backdrop-filter: blur(2px);
-    }
-
+    /* Bubbles - deeper and more subtle */
     .bubbles {
       position: fixed;
       top: 55%;
@@ -638,10 +594,10 @@
     .bubble {
       position: absolute;
       bottom: -20px;
-      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), transparent);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2), transparent);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 50%;
-      animation: rise 10s infinite ease-in;
+      animation: rise 15s infinite ease-in;
     }
 
     @keyframes rise {
@@ -651,56 +607,47 @@
       }
 
       10% {
-        opacity: 0.5;
+        opacity: 0.3;
       }
 
       100% {
-        transform: translateY(-80vh) translateX(50px);
+        transform: translateY(-50vh) translateX(30px);
         opacity: 0;
       }
     }
 
-    .wave {
-      position: absolute;
-      top: calc(55% - 100px);
-      /* Sit on top of the fill */
-      left: 0;
-      width: 200%;
-      height: 100px;
-      /* Specific height for wave pattern */
-      background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 1200 120" xmlns="http://www.w3.org/2000/svg"><path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" opacity=".25" fill="%2306b6d4"/><path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z" opacity=".5" fill="%230891b2"/><path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z" fill="%230e7490"/></svg>');
-      background-size: 50% 100%;
-      animation: wave-move 20s linear infinite;
-      transform-origin: center;
-      z-index: 1;
-    }
-
-    .wave:nth-child(2) {
-      opacity: 0.5;
-      animation: wave-move 15s linear infinite reverse;
-      top: calc(55% - 90px);
-    }
-
-    @keyframes wave-move {
-      0% {
-        transform: translateX(0) scaleY(-1);
-      }
-
-      100% {
-        transform: translateX(-50%) scaleY(-1);
-      }
-    }
-
-    /* Vessel */
+    /* Vessel with bobbing */
+    /* Vessel with bobbing - Split animations */
     .vessel-container {
       position: absolute;
-      top: calc(55% - 50px);
-      /* Sailing on the horizon */
+      top: calc(55% - 45px);
       left: -150px;
-      animation: sail-across 60s linear infinite;
       z-index: 5;
-      filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.6));
+      filter: drop-shadow(0 20px 20px rgba(0, 0, 0, 0.4));
+      animation: sail-across 60s linear infinite;
     }
+
+    .vessel-inner {
+      animation: bobbing 3s ease-in-out infinite;
+      transform-origin: center bottom;
+    }
+
+    @keyframes bobbing {
+
+      0%,
+      100% {
+        transform: translateY(0) rotate(0deg);
+      }
+
+      50% {
+        transform: translateY(8px) rotate(1deg);
+      }
+    }
+
+    /* Old Wave CSS Removed */
+
+    /* Vessel */
+
 
     @keyframes sail-across {
       0% {
@@ -748,104 +695,190 @@
       }
     }
 
-    /* Fish */
+    /* Fish - Silhouettes */
     .fish-school {
       position: absolute;
       top: 55%;
-      /* Start from horizon */
+      /* Starts at horizon */
       left: 0;
       width: 100%;
       height: 45%;
       /* Underwater area */
       pointer-events: none;
-      z-index: 3;
+      z-index: 1;
+      /* Inside/Behind waves */
       overflow: hidden;
     }
 
     .fish {
       position: absolute;
-      width: 30px;
-      opacity: 0.6;
-      filter: blur(0.5px);
-      /* Shallow depth of field */
+      opacity: 0.5;
+      fill: #020617;
+      /* Dark silhouette */
     }
 
     .fish-1 {
-      top: 20%;
-      /* Relative to underwater area */
-      animation: swim 25s linear infinite;
-      animation-delay: 2s;
+      width: 40px;
+      top: 30%;
+      left: -100px;
+      animation: swim 20s linear infinite;
+      opacity: 0.6;
     }
 
     .fish-2 {
-      top: 50%;
-      animation: swim 35s linear infinite;
-      animation-delay: 0s;
-      width: 20px;
-      filter: hue-rotate(90deg) blur(1px);
+      width: 25px;
+      top: 60%;
+      left: -100px;
+      animation: swim 30s linear infinite reverse;
+      /* Swims backward/other way? Or just different speed. 'reverse' makes it go right to left if swim is left to right */
+      animation-delay: 5s;
+      opacity: 0.4;
+      filter: blur(1px);
     }
 
     .fish-jump {
-      /* This fish jumps OUT of the water */
       position: absolute;
-      top: 45%;
+      top: 55%;
       /* Horizon */
       left: 50%;
-      width: 40px;
+      width: 35px;
       z-index: 6;
-      /* In front of vessel */
-      animation: jump 15s ease-in-out infinite;
-      animation-delay: 10s;
+      /* In front of waves when jumping */
+      fill: #1e293b;
+      animation: jump 18s ease-in-out infinite;
+      animation-delay: 8s;
       opacity: 0;
     }
 
     @keyframes swim {
       0% {
+        transform: translateX(-100px);
         left: -50px;
-        transform: translateX(0);
       }
 
       100% {
+        transform: translateX(100vw);
         left: 100%;
-        transform: translateX(0);
       }
     }
 
     @keyframes jump {
 
       0%,
-      80% {
+      85% {
         transform: translate(0, 0) rotate(0deg);
         opacity: 0;
       }
 
-      85% {
+      88% {
         opacity: 1;
-        transform: translate(0, 0) rotate(-45deg);
+        transform: translate(-20px, 0) rotate(-45deg);
       }
 
       90% {
-        transform: translate(100px, -150px) rotate(0deg);
-        /* Jump UP */
+        transform: translate(50px, -120px) rotate(0deg);
+        /* Arc Peak */
         opacity: 1;
       }
 
-      95% {
-        transform: translate(200px, 0) rotate(45deg);
-        /* Land */
+      92% {
+        transform: translate(120px, 0) rotate(45deg);
+        /* Re-entry */
         opacity: 1;
       }
 
+      93%,
       100% {
-        transform: translate(200px, 50px) rotate(45deg);
-        /* Submerge */
         opacity: 0;
+        transform: translate(140px, 20px);
       }
     }
+
+
+
+
+    /* Sea Canvas */
+    #sea-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      /* Above sky, below content */
+    }
+
+    /* Sky Gradient Background */
+    #sky-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -10;
+      background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 40%, #7dd3fc 60%, #0284c7 100%);
+      pointer-events: none;
+    }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
 </head>
 
 <body>
+  <!-- Sky Background -->
+  <div id="sky-bg"></div>
+
+  <!-- BUBBLES CONTAINER -->
+  <div class="bubbles" id="bubbles"></div>
+
+  <!-- ANIMATION CONTAINER -->
+  <div class="sea-container">
+    <canvas id="sea-canvas"></canvas>
+
+    <!-- Vessel -->
+    <div class="vessel-container">
+      <div class="vessel-inner">
+        <svg width="120" height="60" viewBox="0 0 120 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M10,40 L30,40 L30,25 L50,25 L50,40 L90,40 L100,20 L110,20 L100,40 L115,40 C118,40 120,42 120,45 C120,55 110,60 60,60 C10,60 0,55 0,45 C0,42 2,40 5,40 Z"
+            fill="#0f172a" />
+          <path d="M35,25 L35,10 L65,10 L65,25 Z" fill="#1e293b" />
+          <rect x="40" y="15" width="5" height="5" fill="#38bdf8" />
+          <rect x="55" y="15" width="5" height="5" fill="#38bdf8" />
+          <path d="M10,48 L110,48" stroke="#334155" stroke-width="2" />
+          <text x="75" y="55" fill="#64748b" font-family="sans-serif" font-size="6" font-weight="bold">MDI-NET</text>
+        </svg>
+        <div class="vessel-lights">
+          <div class="light red"></div>
+          <div class="light green"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fish -->
+    <div class="fish-school">
+      <!-- Fish 1 -->
+      <svg class="fish fish-1" viewBox="0 0 640 512" fill="currentColor">
+        <path
+          d="M632 308c0-4.4-3.6-8-8-8h-20c-3.1 0-5.9 1.8-7.2 4.6l-24 53.3-64.8-19.1c16-25.7 26.2-54.8 28.5-85.8h60.5c4.1 0 7.6-3.1 7.9-7.2 2.7-33 11-78.5 48.1-98.8 6.5-3.5 10.1-10.8 7.3-17.7l-9.5-23.7c-2.4-5.9-8.4-9.3-14.7-8.2-56.7 9.4-78.8 38.3-90.1 57.3-6.5-33.1-23.4-62.8-48-85.1 7.2-12.7 13.5-37.4-4-64.9-3.7-5.9-10.2-9.4-17.2-9.4h-28.9c-7.9 0-15.1 4.5-18.7 11.6l-18 36c-13.3-3.6-27.3-5.6-41.9-5.6-88 0-160 67.5-170.8 153.2-3.5 28.1 4 56.4 18.6 81.6l-50.6 14.9c-5.7-16-16.7-29.3-31.4-37.5-17.7-9.8-39.6-9.1-56.6 1.8l-52.6 33.6c-10.1 6.5-12.9 20.1-6.2 30 6.5 9.6 19.3 12.1 28.9 5.8l20.1-13.1c12.3 26.4 39 44.9 69.8 44.9 31.8 0 59.1-19.6 70.8-47.3L225 352.8c25.4 12.9 54.3 20.2 85 20.2 60.1 0 113.6-28.2 144.6-72.1l77.7 22.9c3.1 .9 6.4-.3 8.4-2.8l27.9-35.9c3.8-4.9 2.5-12-3-15.1l-18.4-10.5c4.7-7.7 8.6-15.8 11.6-24.1h21.1c4.4 0 8-3.6 8-8v-20.4z" />
+      </svg>
+      <!-- Fish 2 -->
+      <svg class="fish fish-2" viewBox="0 0 512 512" fill="currentColor">
+        <path
+          d="M495.8 156.9c-27.2-22.3-56.9-24.8-67.6-24.8-19.8 0-45.6 7-68.5 17.5-22-38.3-63.5-64.1-111-64.1-74.9 0-136.6 63.6-143.6 141.2-16.1-5-31.6-12.3-43.9-22.6-7.8-6.5-18.7-8.1-28.1-4.1C18.6 206 7.4 220 4.1 235.3c-5.4 25.1 8 50.8 30.6 57.6 19 5.8 41.5 5.5 61.3-1.8 19.7 34.7 56.6 58.3 99.3 58.3 25.5 0 49-8.4 68.2-22.6 18.2 15.6 42.4 25.1 69.2 25.1 28.5 0 53.6-10.8 72.7-28.4 14.5 11 31.3 16.9 49.3 16.9 14.2 0 28.1-3.7 40.7-10.4 10.3-5.5 15.3-17.5 11.5-28.6-27.7-81.8 13-132.8 14.9-134.7 5.9-6.1 4.9-16-2-20.8z" />
+      </svg>
+      <!-- Random Extra Fish -->
+      <svg class="fish fish-1" style="top:70%; left: 20%; animation-delay: 12s; width: 15px; opacity: 0.2"
+        viewBox="0 0 640 512" fill="currentColor">
+        <path
+          d="M632 308c0-4.4-3.6-8-8-8h-20c-3.1 0-5.9 1.8-7.2 4.6l-24 53.3-64.8-19.1c16-25.7 26.2-54.8 28.5-85.8h60.5c4.1 0 7.6-3.1 7.9-7.2 2.7-33 11-78.5 48.1-98.8 6.5-3.5 10.1-10.8 7.3-17.7l-9.5-23.7c-2.4-5.9-8.4-9.3-14.7-8.2-56.7 9.4-78.8 38.3-90.1 57.3-6.5-33.1-23.4-62.8-48-85.1 7.2-12.7 13.5-37.4-4-64.9-3.7-5.9-10.2-9.4-17.2-9.4h-28.9c-7.9 0-15.1 4.5-18.7 11.6l-18 36c-13.3-3.6-27.3-5.6-41.9-5.6-88 0-160 67.5-170.8 153.2-3.5 28.1 4 56.4 18.6 81.6l-50.6 14.9c-5.7-16-16.7-29.3-31.4-37.5-17.7-9.8-39.6-9.1-56.6 1.8l-52.6 33.6c-10.1 6.5-12.9 20.1-6.2 30 6.5 9.6 19.3 12.1 28.9 5.8l20.1-13.1c12.3 26.4 39 44.9 69.8 44.9 31.8 0 59.1-19.6 70.8-47.3L225 352.8c25.4 12.9 54.3 20.2 85 20.2 60.1 0 113.6-28.2 144.6-72.1l77.7 22.9c3.1 .9 6.4-.3 8.4-2.8l27.9-35.9c3.8-4.9 2.5-12-3-15.1l-18.4-10.5c4.7-7.7 8.6-15.8 11.6-24.1h21.1c4.4 0 8-3.6 8-8v-20.4z" />
+      </svg>
+      <!-- Jumping Fish -->
+      <svg class="fish fish-jump" viewBox="0 0 576 512" fill="currentColor">
+        <path
+          d="M569.1 426.4L452.8 14.5C447.8-2.9 422-5.4 413.4 9.9c-23.7 42-63.1 76.5-108.9 95.8-37.4 15.8-77.9 22.4-118.8 19.4-40.4-3-79-13.6-114.3-31.5C31.2 73.1 3.5 103.3 14.2 144.3l35.8 136.4c7.6 28.9 36.3 47.9 66 43.6l45.2-6.5c-4.6 24.1-1.6 49.2 8.9 71.9 12.3 26.6 28.5 50.9 48.4 71.8 18.9 19.9 45.3 31.3 72.7 31.2 26 0 52-11 70.8-30.8 54.3-57.2 89.2-132 99.4-210.7l64.1 113c12.1 21.3 43.3 19.2 52.3-3.6 4.7-11.9 5.2-24.9 1.3-37.2zM277.8 77c-36.8-29.2-92.5-12.8-100.9 33.6-1.1 6.1-8.2 8-12.3 3.3-16.7-19.4-44.5-25.9-67-15.6-8.9 4.1-18.7 1.3-24.8-6.6-15.3-19.9-10.8-49.3 11-63.5 35.5-23.1 82.5-31.1 120.9-18.4 9.1 3 13.9 12.7 10.9 21.8-3 9-12.7 13.8-21.8 10.9-27.6-9.1-61.9-3.2-87.9 13.6-7.8 5.1-9.6 15.6-3.8 23 2.1 2.7 5.2 4 8.3 4 5.3 0 10.5-3.6 12.4-9.3 6.9-20.9 27.5-33.8 49.6-31.1 4.5 .5 106.6 25 105.4 34.4z" />
+      </svg>
+    </div>
+  </div>
   <!-- Header -->
   <header style="width:100%; max-width:800px; margin-bottom:2rem;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1436,51 +1469,257 @@
       b.style.animationDelay = (Math.random() * 5) + 's';
       bubbleContainer.appendChild(b);
     }
+
+    // ========= WAVE ANIMATION =========
+
+    // Minimal SimplexNoise implementation
+    class SimplexNoise {
+      constructor() {
+        this.grad3 = [[1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0], [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1], [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1]];
+        this.p = [];
+        for (let i = 0; i < 256; i++) { this.p[i] = Math.floor(Math.random() * 256); }
+        this.perm = [];
+        for (let i = 0; i < 512; i++) { this.perm[i] = this.p[i & 255]; }
+      }
+      dot(g, x, y) { return g[0] * x + g[1] * y; }
+      noise2D(xin, yin) {
+        let n0, n1, n2;
+        const F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
+        const s = (xin + yin) * F2;
+        const i = Math.floor(xin + s);
+        const j = Math.floor(yin + s);
+        const G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
+        const t = (i + j) * G2;
+        const X0 = i - t;
+        const Y0 = j - t;
+        const x0 = xin - X0;
+        const y0 = yin - Y0;
+        let i1, j1;
+        if (x0 > y0) { i1 = 1; j1 = 0; } else { i1 = 0; j1 = 1; }
+        const x1 = x0 - i1 + G2;
+        const y1 = y0 - j1 + G2;
+        const x2 = x0 - 1.0 + 2.0 * G2;
+        const y2 = y0 - 1.0 + 2.0 * G2;
+        const ii = i & 255;
+        const jj = j & 255;
+        const gi0 = this.perm[ii + this.perm[jj]] % 12;
+        const gi1 = this.perm[ii + i1 + this.perm[jj + j1]] % 12;
+        const gi2 = this.perm[ii + 1 + this.perm[jj + 1]] % 12;
+
+        let t0 = 0.5 - x0 * x0 - y0 * y0;
+        if (t0 < 0) n0 = 0.0;
+        else { t0 *= t0; n0 = t0 * t0 * this.dot(this.grad3[gi0], x0, y0); }
+
+        let t1 = 0.5 - x1 * x1 - y1 * y1;
+        if (t1 < 0) n1 = 0.0;
+        else { t1 *= t1; n1 = t1 * t1 * this.dot(this.grad3[gi1], x1, y1); }
+
+        let t2 = 0.5 - x2 * x2 - y2 * y2;
+        if (t2 < 0) n2 = 0.0;
+        else { t2 *= t2; n2 = t2 * t2 * this.dot(this.grad3[gi2], x2, y2); }
+
+        return 70.0 * (n0 + n1 + n2);
+      }
+    }
+
+    const $ = {};
+
+    /*========================================
+    Utility
+    ========================================*/
+
+    $.PI = Math.PI;
+    $.TAU = $.PI * 2;
+
+    $.rand = function (min, max) {
+      if (!max) {
+        var max = min;
+        min = 0;
+      }
+      return Math.random() * (max - min) + min;
+    };
+
+    /*========================================
+    Initialize
+    ========================================*/
+
+    $.init = () => {
+      $.c = document.getElementById('sea-canvas');
+      $.ctx = $.c.getContext('2d');
+      $.simplex = new SimplexNoise();
+      $.events();
+      $.reset();
+      $.loop();
+    };
+
+    /*========================================
+    Reset
+    ========================================*/
+
+    $.reset = () => {
+      $.dpr = window.devicePixelRatio || 1;
+      $.w = window.innerWidth;
+      $.h = window.innerHeight;
+      $.c.width = $.w * $.dpr;
+      $.c.height = $.h * $.dpr;
+      $.c.style.width = `${$.w}px`;
+      $.c.style.height = `${$.h}px`;
+      $.ctx.scale($.dpr, $.dpr);
+
+      // Animation params
+      // Horizon height
+      $.horizon = $.h * 0.55;
+
+      // Layer config: [count, amp, speed, color, y-offset-noise]
+      $.layers = [
+        { count: Math.floor($.w / 60), amp: 15, speed: 0.001, color: 'rgba(30, 58, 138, 0.6)', yOff: 0 },   // Dark Blue
+        { count: Math.floor($.w / 50), amp: 20, speed: 0.002, color: 'rgba(23, 37, 84, 0.7)', yOff: 10 },    // Navy
+        { count: Math.floor($.w / 40), amp: 30, speed: 0.003, color: 'rgba(15, 23, 42, 0.8)', yOff: 20 },    // Darker Slate
+        { count: Math.floor($.w / 30), amp: 40, speed: 0.004, color: 'rgba(2, 6, 23, 0.9)', yOff: 30 },      // Near Black
+      ];
+
+      $.t = 0;
+    };
+
+    /*========================================
+    Event
+    ========================================*/
+
+    $.events = () => {
+      window.addEventListener('resize', $.reset.bind(this));
+    };
+
+    /*========================================
+    Wave
+    ========================================*/
+
+    $.drawWave = (layer, index) => {
+      $.ctx.beginPath();
+
+      // Noise inputs
+      let xoff = 0;
+      let xinc = 0.03 + (index * 0.01);
+      let yinc = layer.speed;
+
+      // Time-based offset for this layer
+      let yTime = $.t * yinc;
+
+      // Start slightly off-screen left
+      $.ctx.moveTo(-20, $.horizon);
+
+      // Draw points
+      for (let i = 0; i <= layer.count + 2; i++) {
+        xoff += xinc;
+
+        let x = (-20) + (($.w + 40) / layer.count) * i;
+
+        // Simplex noise: x-noise + time-noise
+        let noiseVal = $.simplex.noise2D(xoff, yTime);
+        let sway = $.simplex.noise2D(yTime, 0) * (layer.amp * 0.5);
+
+        let y = $.horizon + noiseVal * layer.amp + sway + (index * 15); // Offset each layer slightly down
+
+        $.ctx.lineTo(x, y);
+      }
+
+      // Close shape to bottom corners
+      $.ctx.lineTo($.w + 20, $.h);
+      $.ctx.lineTo(-20, $.h);
+      $.ctx.closePath();
+
+      // Fill
+      $.ctx.fillStyle = layer.color;
+      $.ctx.fill();
+    };
+
+    // Deep Ocean Gradient Fill for the bottom-most area
+    $.drawDeepOcean = () => {
+      const grad = $.ctx.createLinearGradient(0, $.horizon, 0, $.h);
+      grad.addColorStop(0, 'rgba(3, 105, 161, 0.1)');
+      grad.addColorStop(1, 'rgba(2, 6, 23, 0.95)'); // Very dark at bottom
+      $.ctx.fillStyle = grad;
+      $.ctx.fillRect(0, $.horizon, $.w, $.h - $.horizon);
+    };
+
+    /*========================================
+    Loop
+    ========================================*/
+
+    $.loop = () => {
+      requestAnimationFrame($.loop);
+      $.ctx.clearRect(0, 0, $.w, $.h);
+
+      $.t += 1;
+
+      // Draw layers back to front
+      $.layers.forEach((layer, i) => {
+        $.drawWave(layer, i);
+      });
+
+      // Overlay deep ocean darkness
+      $.drawDeepOcean();
+    };
+
+    /*========================================
+    Start
+    ========================================*/
+
+    // Robust initialization
+    // Start immediately
+    $.init();
   </script>
 
-  <!-- BUBBLES CONTAINER -->
+
   <div class="bubbles" id="bubbles"></div>
 
   <!-- ANIMATION CONTAINER -->
   <div class="sea-container">
-    <div class="sea-fill"></div>
-    <div class="wave"></div>
-    <div class="wave"></div>
+    <canvas id="sea-canvas"></canvas>
 
     <!-- Vessel -->
     <div class="vessel-container">
-      <svg width="120" height="60" viewBox="0 0 120 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M10,40 L30,40 L30,25 L50,25 L50,40 L90,40 L100,20 L110,20 L100,40 L115,40 C118,40 120,42 120,45 C120,55 110,60 60,60 C10,60 0,55 0,45 C0,42 2,40 5,40 Z"
-          fill="#334155" />
-        <path d="M35,25 L35,10 L65,10 L65,25 Z" fill="#475569" />
-        <rect x="40" y="15" width="5" height="5" fill="#bae6fd" />
-        <rect x="55" y="15" width="5" height="5" fill="#bae6fd" />
-        <path d="M10,48 L110,48" stroke="#64748b" stroke-width="2" />
-        <text x="75" y="55" fill="#94a3b8" font-family="sans-serif" font-size="6" font-weight="bold">MDI-NET</text>
-      </svg>
-      <div class="vessel-lights">
-        <div class="light red"></div>
-        <div class="light green"></div>
+      <div class="vessel-inner">
+        <svg width="120" height="60" viewBox="0 0 120 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M10,40 L30,40 L30,25 L50,25 L50,40 L90,40 L100,20 L110,20 L100,40 L115,40 C118,40 120,42 120,45 C120,55 110,60 60,60 C10,60 0,55 0,45 C0,42 2,40 5,40 Z"
+            fill="#0f172a" />
+          <path d="M35,25 L35,10 L65,10 L65,25 Z" fill="#1e293b" />
+          <rect x="40" y="15" width="5" height="5" fill="#38bdf8" />
+          <rect x="55" y="15" width="5" height="5" fill="#38bdf8" />
+          <path d="M10,48 L110,48" stroke="#334155" stroke-width="2" />
+          <text x="75" y="55" fill="#64748b" font-family="sans-serif" font-size="6" font-weight="bold">MDI-NET</text>
+        </svg>
+        <div class="vessel-lights">
+          <div class="light red"></div>
+          <div class="light green"></div>
+        </div>
       </div>
     </div>
 
     <!-- Fish -->
     <div class="fish-school">
       <!-- Fish 1 -->
-      <svg class="fish fish-1" viewBox="0 0 640 512" fill="hsl(var(--accent-orange))">
+      <svg class="fish fish-1" viewBox="0 0 640 512" fill="currentColor">
         <path
           d="M632 308c0-4.4-3.6-8-8-8h-20c-3.1 0-5.9 1.8-7.2 4.6l-24 53.3-64.8-19.1c16-25.7 26.2-54.8 28.5-85.8h60.5c4.1 0 7.6-3.1 7.9-7.2 2.7-33 11-78.5 48.1-98.8 6.5-3.5 10.1-10.8 7.3-17.7l-9.5-23.7c-2.4-5.9-8.4-9.3-14.7-8.2-56.7 9.4-78.8 38.3-90.1 57.3-6.5-33.1-23.4-62.8-48-85.1 7.2-12.7 13.5-37.4-4-64.9-3.7-5.9-10.2-9.4-17.2-9.4h-28.9c-7.9 0-15.1 4.5-18.7 11.6l-18 36c-13.3-3.6-27.3-5.6-41.9-5.6-88 0-160 67.5-170.8 153.2-3.5 28.1 4 56.4 18.6 81.6l-50.6 14.9c-5.7-16-16.7-29.3-31.4-37.5-17.7-9.8-39.6-9.1-56.6 1.8l-52.6 33.6c-10.1 6.5-12.9 20.1-6.2 30 6.5 9.6 19.3 12.1 28.9 5.8l20.1-13.1c12.3 26.4 39 44.9 69.8 44.9 31.8 0 59.1-19.6 70.8-47.3L225 352.8c25.4 12.9 54.3 20.2 85 20.2 60.1 0 113.6-28.2 144.6-72.1l77.7 22.9c3.1 .9 6.4-.3 8.4-2.8l27.9-35.9c3.8-4.9 2.5-12-3-15.1l-18.4-10.5c4.7-7.7 8.6-15.8 11.6-24.1h21.1c4.4 0 8-3.6 8-8v-20.4z" />
       </svg>
 
       <!-- Fish 2 -->
-      <svg class="fish fish-2" viewBox="0 0 512 512" fill="hsl(var(--accent-cyan))">
+      <svg class="fish fish-2" viewBox="0 0 512 512" fill="currentColor">
         <path
           d="M495.8 156.9c-27.2-22.3-56.9-24.8-67.6-24.8-19.8 0-45.6 7-68.5 17.5-22-38.3-63.5-64.1-111-64.1-74.9 0-136.6 63.6-143.6 141.2-16.1-5-31.6-12.3-43.9-22.6-7.8-6.5-18.7-8.1-28.1-4.1C18.6 206 7.4 220 4.1 235.3c-5.4 25.1 8 50.8 30.6 57.6 19 5.8 41.5 5.5 61.3-1.8 19.7 34.7 56.6 58.3 99.3 58.3 25.5 0 49-8.4 68.2-22.6 18.2 15.6 42.4 25.1 69.2 25.1 28.5 0 53.6-10.8 72.7-28.4 14.5 11 31.3 16.9 49.3 16.9 14.2 0 28.1-3.7 40.7-10.4 10.3-5.5 15.3-17.5 11.5-28.6-27.7-81.8 13-132.8 14.9-134.7 5.9-6.1 4.9-16-2-20.8z" />
       </svg>
 
+      <!-- Random Extra Fish -->
+      <svg class="fish fish-1" style="top:70%; left: 20%; animation-delay: 12s; width: 15px; opacity: 0.2"
+        viewBox="0 0 640 512" fill="currentColor">
+        <path
+          d="M632 308c0-4.4-3.6-8-8-8h-20c-3.1 0-5.9 1.8-7.2 4.6l-24 53.3-64.8-19.1c16-25.7 26.2-54.8 28.5-85.8h60.5c4.1 0 7.6-3.1 7.9-7.2 2.7-33 11-78.5 48.1-98.8 6.5-3.5 10.1-10.8 7.3-17.7l-9.5-23.7c-2.4-5.9-8.4-9.3-14.7-8.2-56.7 9.4-78.8 38.3-90.1 57.3-6.5-33.1-23.4-62.8-48-85.1 7.2-12.7 13.5-37.4-4-64.9-3.7-5.9-10.2-9.4-17.2-9.4h-28.9c-7.9 0-15.1 4.5-18.7 11.6l-18 36c-13.3-3.6-27.3-5.6-41.9-5.6-88 0-160 67.5-170.8 153.2-3.5 28.1 4 56.4 18.6 81.6l-50.6 14.9c-5.7-16-16.7-29.3-31.4-37.5-17.7-9.8-39.6-9.1-56.6 1.8l-52.6 33.6c-10.1 6.5-12.9 20.1-6.2 30 6.5 9.6 19.3 12.1 28.9 5.8l20.1-13.1c12.3 26.4 39 44.9 69.8 44.9 31.8 0 59.1-19.6 70.8-47.3L225 352.8c25.4 12.9 54.3 20.2 85 20.2 60.1 0 113.6-28.2 144.6-72.1l77.7 22.9c3.1 .9 6.4-.3 8.4-2.8l27.9-35.9c3.8-4.9 2.5-12-3-15.1l-18.4-10.5c4.7-7.7 8.6-15.8 11.6-24.1h21.1c4.4 0 8-3.6 8-8v-20.4z" />
+      </svg>
+
+
       <!-- Jumping Fish -->
-      <svg class="fish fish-jump" viewBox="0 0 576 512" width="40" fill="hsl(var(--accent-purple))">
+      <svg class="fish fish-jump" viewBox="0 0 576 512" fill="currentColor">
         <path
           d="M569.1 426.4L452.8 14.5C447.8-2.9 422-5.4 413.4 9.9c-23.7 42-63.1 76.5-108.9 95.8-37.4 15.8-77.9 22.4-118.8 19.4-40.4-3-79-13.6-114.3-31.5C31.2 73.1 3.5 103.3 14.2 144.3l35.8 136.4c7.6 28.9 36.3 47.9 66 43.6l45.2-6.5c-4.6 24.1-1.6 49.2 8.9 71.9 12.3 26.6 28.5 50.9 48.4 71.8 18.9 19.9 45.3 31.3 72.7 31.2 26 0 52-11 70.8-30.8 54.3-57.2 89.2-132 99.4-210.7l64.1 113c12.1 21.3 43.3 19.2 52.3-3.6 4.7-11.9 5.2-24.9 1.3-37.2zM277.8 77c-36.8-29.2-92.5-12.8-100.9 33.6-1.1 6.1-8.2 8-12.3 3.3-16.7-19.4-44.5-25.9-67-15.6-8.9 4.1-18.7 1.3-24.8-6.6-15.3-19.9-10.8-49.3 11-63.5 35.5-23.1 82.5-31.1 120.9-18.4 9.1 3 13.9 12.7 10.9 21.8-3 9-12.7 13.8-21.8 10.9-27.6-9.1-61.9-3.2-87.9 13.6-7.8 5.1-9.6 15.6-3.8 23 2.1 2.7 5.2 4 8.3 4 5.3 0 10.5-3.6 12.4-9.3 6.9-20.9 27.5-33.8 49.6-31.1 4.5 .5 106.6 25 105.4 34.4z" />
       </svg>
