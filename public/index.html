@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MDI Network Diagnostics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Real-time network monitoring and speed analysis tool">
+  <style>
+    /* NEON THEME CSS */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: 220 20% 10%;
+      --bg-card: 220 25% 15%;
+      --text: 210 40% 98%;
+      --text-muted: 215 20% 65%;
+      --accent-cyan: 190 100% 50%;
+      --accent-green: 150 100% 50%;
+      --accent-purple: 270 100% 65%;
+      --accent-blue: 210 100% 60%;
+      --accent-orange: 30 100% 60%;
+      --border: 220 25% 25%;
+      --error: 0 70% 50%;
+      --glass-bg: hsla(220, 25%, 15%, 0.4);
+      --glass-border: hsla(220, 25%, 25%, 0.3);
+    }
+    
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: hsl(var(--bg));
+      color: hsl(var(--text));
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    .container { width: 100%; max-width: 480px; margin: 0 auto; }
+
+    /* Header Section */
+    .st-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .st-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; color: hsl(var(--accent-cyan)); }
+    
+    .st-start-btn {
+      background: hsl(var(--accent-cyan)); color: #000; border: none;
+      padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 600; font-size: 1rem;
+      cursor: pointer; box-shadow: 0 0 15px hsl(var(--accent-cyan) / 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .st-start-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 25px hsl(var(--accent-cyan) / 0.5); }
+    .st-start-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+    /* Progress Bar */
+    .st-progress-container { margin-bottom: 2rem; }
+    .st-progress-labels { display: flex; justify-content: space-between; color: hsl(var(--text-muted)); font-family: monospace; font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .st-progress-bar { height: 8px; background: hsl(var(--bg-card)); border-radius: 4px; overflow: hidden; position: relative; }
+    .st-progress-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: linear-gradient(90deg, hsl(var(--accent-cyan)), hsl(var(--accent-purple))); box-shadow: 0 0 10px hsl(var(--accent-cyan) / 0.5); transition: width 0.2s; }
+
+    /* 2x2 Grid */
+    .st-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+    .st-card { background: hsl(var(--bg-card)); border: 1px solid hsl(var(--border)); border-radius: 16px; padding: 1.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; }
+    .st-icon { width: 24px; height: 24px; margin-bottom: 0.5rem; }
+    .st-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .st-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: hsl(var(--text-muted)); }
+    
+    /* Text Colors */
+    .text-cyan { color: hsl(var(--accent-cyan)); }
+    .text-green { color: hsl(var(--accent-green)); }
+    .text-purple { color: hsl(var(--accent-purple)); }
+    .text-blue { color: hsl(var(--accent-blue)); }
+    .text-orange { color: hsl(var(--accent-orange)); }
+
+    /* Graph Section */
+    .st-graph-section { margin-top: 1rem; }
+    .st-graph-header { color: hsl(var(--text-muted)); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem; }
+    .st-graph-container { height: 150px; width: 100%; position: relative; }
+    .st-graph-container svg { width: 100%; height: 100%; overflow: visible; }
+    
+    /* Device Info Styles */
+    .di-card { background: hsl(var(--bg-card)); border: 1px solid hsl(var(--border)); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; }
+    .di-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid hsl(var(--border)); }
+    .di-title { font-size: 1.25rem; font-weight: 700; color: hsl(var(--accent-cyan)); display: flex; align-items: center; gap: 0.5rem; }
+    .di-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .di-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: hsl(var(--bg) / 0.5); border-radius: 8px; }
+    .di-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: hsl(var(--text-muted)); display: flex; align-items: center; gap: 0.5rem; }
+    .di-value { font-family: monospace; font-size: 0.95rem; color: hsl(var(--accent-cyan)); }
+    .di-footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid hsl(var(--border) / 0.5); display: flex; justify-content: space-between; font-size: 0.8rem; color: hsl(var(--text-muted)); }
+    .di-footer strong { color: hsl(var(--text)); }
+
+    /* Target Systems Styles */
+    .ts-card { width: 100%; max-width: 800px; margin: 0 auto 2rem auto; background: hsl(var(--bg-card) / 0.6); backdrop-filter: blur(10px); border: 1px solid hsl(var(--border) / 0.5); border-radius: 20px; padding: 2rem; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .ts-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .ts-title { font-size: 1.25rem; font-weight: 700; color: hsl(var(--accent-cyan)); display: flex; align-items: center; gap: 0.5rem; }
+    .ts-ping-all-btn { background: transparent; border: 1px solid hsl(var(--accent-cyan)); color: hsl(var(--accent-cyan)); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; }
+    .ts-ping-all-btn:hover { background: hsl(var(--accent-cyan) / 0.1); }
+    
+    .ts-search-container { display: flex; gap: 1rem; margin-bottom: 2rem; }
+    .ts-search-input { flex: 1; background: hsl(var(--bg) / 0.5); border: 1px solid hsl(var(--border)); color: hsl(var(--text)); padding: 0.75rem 1rem; border-radius: 8px; font-family: inherit; }
+    .ts-go-btn { background: hsl(var(--accent-cyan)); color: #000; border: none; width: 42px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+    /* Visual Line */
+    .ts-visual-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; padding: 0 1rem; }
+    .ts-node { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; position: relative; z-index: 2; }
+    .ts-node-icon { width: 48px; height: 48px; background: hsl(var(--bg) / 0.5); border: 1px solid hsl(var(--border)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: hsl(var(--accent-cyan)); }
+    .ts-line-track { flex: 1; height: 2px; background: linear-gradient(90deg, hsl(var(--accent-cyan)), hsl(var(--accent-purple)), hsl(var(--accent-green))); margin: 0 1rem; position: relative; top: -14px; z-index: 1; }
+    .ts-line-dot { width: 8px; height: 8px; border-radius: 50%; position: absolute; top: 50%; transform: translateY(-50%); background: currentColor; }
+
+    /* Target List */
+    .ts-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .ts-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: hsl(var(--bg) / 0.3); border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: background 0.2s; }
+    .ts-item:hover { background: hsl(var(--bg) / 0.6); border-color: hsl(var(--border) / 0.5); }
+    .ts-item-info { display: flex; align-items: center; gap: 1rem; }
+    .ts-check-icon { color: hsl(var(--accent-green)); width: 20px; height: 20px; }
+    .ts-name { font-weight: 600; color: hsl(var(--text-muted)); }
+    .ts-ping-val { font-family: monospace; font-weight: 600; }
+    .ts-ping-val.good { color: hsl(var(--accent-green)); }
+    .ts-ping-val.fair { color: hsl(var(--accent-orange)); }
+    .ts-ping-val.poor { color: hsl(var(--error)); }
+
+    /* Legend */
+    .ts-legend { display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; font-size: 0.75rem; color: hsl(var(--text-muted)); }
+    .ts-legend-item { display: flex; align-items: center; gap: 0.5rem; }
+    .ts-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  
+    /* Wide Top Bar (Device Info) */
+    .di-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 800px; margin: 0 auto 2rem auto; padding: 0.5rem 1rem; background: hsl(var(--bg-card) / 0.15); backdrop-filter: blur(4px); border: 1px solid hsl(var(--border) / 0.4); border-radius: 50px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-size: 0.8rem; gap: 1.5rem; }
+    .di-bar-item { display: flex; align-items: center; gap: 0.5rem; }
+    .di-bar-label { color: hsl(var(--text-muted)); font-weight: 600; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 1px; }
+    .di-bar-value { color: hsl(var(--text)); font-weight: 600; white-space: nowrap; font-size: 0.85rem; }
+    .di-sep { width: 1px; height: 16px; background: hsl(var(--border) / 0.5); }
+
+    /* Small Start Button */
+    .st-start-btn-small { width: 42px; height: 42px; border-radius: 50%; border: 1px solid hsl(var(--accent-cyan)); background: transparent; color: hsl(var(--accent-cyan)); font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 0 10px hsl(var(--accent-cyan) / 0.2); }
+    .st-start-btn-small:hover { background: hsl(var(--accent-cyan)); color: hsl(var(--bg)); box-shadow: 0 0 20px hsl(var(--accent-cyan) / 0.6); transform: scale(1.1) rotate(90deg); }
+    .st-start-btn-small:active { transform: scale(0.9); }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header style="width:100%; max-width:800px; margin-bottom:2rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <div style="width:48px; height:48px; background:hsl(var(--bg-card)); border:1px solid hsl(var(--border)); border-radius:12px; display:flex; align-items:center; justify-content:center; color:hsl(var(--accent-cyan));">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <div>
+          <h1 style="font-size:1.5rem;"><span style="color:hsl(var(--accent-cyan));">Network</span> Diagnostics</h1>
+          <p style="font-size:0.8rem; color:hsl(var(--text-muted));">Real-time network monitoring & speed analysis</p>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem; color:hsl(var(--accent-green)); font-size:0.8rem;">
+        <span style="width:8px; height:8px; background:currentColor; border-radius:50%; animation:pulse 2s infinite;"></span> Live
+      </div>
+    </div>
+  </header>
+
+  <!-- Device Info Bar -->
+  <div class="di-bar">
+    <div class="di-bar-item">
+      <span class="di-bar-label">Status</span>
+      <div class="di-value" style="color:hsl(var(--accent-green)); display:flex; align-items:center; gap:0.5rem;">
+        <span style="width:8px; height:8px; background:currentColor; border-radius:50%;"></span> Online
+      </div>
+    </div>
+    <div class="di-sep"></div>
+    <div class="di-bar-item">
+      <span class="di-bar-label">Local IP</span>
+      <div class="di-bar-value" id="connList">...</div>
+    </div>
+    <div class="di-sep"></div>
+    <div class="di-bar-item">
+      <span class="di-bar-label">Public IP</span>
+      <div class="di-bar-value" id="publicIP">...</div>
+    </div>
+    <div class="di-sep"></div>
+    <div class="di-bar-item">
+      <span class="di-bar-label">ISP/Region</span>
+      <div class="di-bar-value" id="country">...</div>
+    </div>
+    <div class="di-bar-item" style="margin-left:auto;">
+      <button class="ts-ping-all-btn" onclick="location.reload()" title="Refresh Info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+    </div>
+  </div>
+  
+  <!-- Target Systems -->
+  <div class="ts-card">
+    <div class="ts-header">
+      <div class="ts-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        Target Systems
+      </div>
+      <button class="ts-ping-all-btn" id="refreshBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Ping All
+      </button>
+    </div>
+
+    <div class="ts-search-container">
+      <div style="flex:1; position:relative;">
+        <input type="text" class="ts-search-input" placeholder="Enter hostname or IP...">
+      </div>
+      <button class="ts-go-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+
+    <div class="ts-visual-line">
+      <div class="ts-node">
+        <div class="ts-node-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <div style="font-size:0.75rem; color:hsl(var(--text-muted));">Your Device</div>
+      </div>
+      <div class="ts-line-track">
+        <div class="ts-line-dot" style="left:20%; color:hsl(var(--accent-cyan))"></div>
+        <div class="ts-line-dot" style="left:50%; color:hsl(var(--accent-purple))"></div>
+        <div class="ts-line-dot" style="left:80%; color:hsl(var(--accent-green))"></div>
+      </div>
+      <div class="ts-node">
+        <div class="ts-node-icon" style="color:hsl(var(--accent-green)); border-color:hsl(var(--accent-green)/0.5); background:hsl(var(--accent-green)/0.1)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M22 12h-4"/><path d="M6 12H2"/><path d="M12 6V2"/><path d="M12 22v-4"/></svg>
+        </div>
+        <div style="font-size:0.75rem; color:hsl(var(--text-muted));">Target</div>
+      </div>
+    </div>
+    
+    <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:hsl(var(--text-muted)); margin-bottom:1rem;">Connectivity Status</div>
+
+    <div class="ts-list" id="targetsList"></div>
+    
+    <div class="ts-legend">
+      <div class="ts-legend-item"><div class="ts-dot" style="background:hsl(var(--accent-green))"></div> &lt;50ms</div>
+      <div class="ts-legend-item"><div class="ts-dot" style="background:hsl(var(--accent-orange))"></div> &lt;150ms</div>
+      <div class="ts-legend-item"><div class="ts-dot" style="background:hsl(var(--error))"></div> &gt;150ms</div>
+    </div>
+  </div>
+
+  <!-- Speed Test Bar -->
+  <div class="di-bar" style="margin-top: -1rem; margin-bottom: 2rem;">
+    <div class="di-bar-item" style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 1.5rem; margin-right: 1rem;">
+      <div style="font-size: 0.9rem; font-weight: 800; color: hsl(var(--accent-cyan)); letter-spacing: 1px;">INTERNET SPEED</div>
+    </div>
+    
+    <div class="di-bar-item">
+      <span class="di-bar-label">Download</span>
+      <div class="di-bar-value" style="color:hsl(var(--accent-green)); min-width:60px;">
+        <span id="dlSpeed">--</span> <span style="font-size:0.7em; opacity:0.7;">Mbps</span>
+      </div>
+    </div>
+
+    <div class="di-sep"></div>
+
+    <div class="di-bar-item">
+      <button id="startSpeed" class="st-start-btn-small" title="Start Speed Test">GO</button>
+    </div>
+    
+    <div class="di-sep"></div>
+
+    <div class="di-bar-item">
+      <span class="di-bar-label">Upload</span>
+      <div class="di-bar-value" style="color:hsl(var(--accent-purple)); min-width:60px;">
+        <span id="ulSpeed">--</span> <span style="font-size:0.7em; opacity:0.7;">Mbps</span>
+      </div>
+    </div>
+
+    <!-- Hidden Elements -->
+    <div style="display:none;">
+      <span id="latency">--</span>
+      <canvas id="gaugeCanvas" width="300" height="300"></canvas>
+      <div id="gaugeVal">0.0</div>
+      <div id="jitter"></div>
+      <div id="packetLoss"></div>
+      <canvas id="downloadGraphInline"></canvas>
+      <canvas id="uploadGraphInline"></canvas>
+      <div id="uploadGraph"></div>
+      <div id="downloadGraph"></div>
+      <div id="testProgressTxt"></div>
+      <div id="testProgressBar"></div>
+    </div>
+  </div>
+
+  <div id="errorContainer"></div>
+
+  <script>
+    // ========= API HELPERS =========
+    async function apiCall(action, params = {}) {
+      const url = `/api/${action}?` + new URLSearchParams(params);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    }
+
+    // ========= END USER INFO MODULE =========
+    const EndUserInfo = {
+      async loadSystemInfo() {
+        try {
+          const listEl = document.getElementById('connList');
+          listEl.innerHTML = '';
+          
+          const localIPs = await this.getWebRTCLocalIPs();
+          
+          if (localIPs.length > 0) {
+            localIPs.forEach(ip => {
+              listEl.innerHTML += `<div style="margin-bottom:2px;">${ip} <span style="font-size:0.7rem; color:hsl(var(--text-muted))">(WiFi/LAN)</span></div>`;
+            });
+          }
+
+          const clientData = await this.getClientConnectionIP();
+          if (clientData && clientData.data && clientData.data.client_ip) {
+            if (!localIPs.includes(clientData.data.client_ip)) {
+              listEl.innerHTML += `<div style="margin-bottom:2px;">${clientData.data.client_ip} <span style="font-size:0.7rem; color:hsl(var(--text-muted))">(Gateway)</span></div>`;
+            }
+          } else if (localIPs.length === 0) {
+            listEl.innerHTML = '<span style="color:hsl(var(--error))">Unknown</span>';
+          }
+        } catch(e) {
+          console.error('Failed to load network information:', e.message);
+          document.getElementById('connList').innerHTML = '<div style="color:hsl(var(--text-muted))">Error</div>';
+        }
+      },
+
+      async getWebRTCLocalIPs() {
+        return new Promise((resolve) => {
+          const ips = new Set();
+          try {
+            const pc = new RTCPeerConnection({iceServers: []});
+            pc.createDataChannel('');
+            pc.onicecandidate = (e) => {
+              if (!e.candidate) { pc.close(); resolve(Array.from(ips)); return; }
+              const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+              const match = e.candidate.candidate.match(ipRegex);
+              if (match) {
+                const ip = match[1];
+                if (ip !== '0.0.0.0' && ip !== '127.0.0.1' && (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.'))) {
+                  ips.add(ip);
+                }
+              }
+            };
+            pc.createOffer().then(sdp => pc.setLocalDescription(sdp)).catch(() => resolve([]));
+            setTimeout(() => resolve(Array.from(ips)), 1000);
+          } catch { resolve([]); }
+        });
+      },
+      
+      async getClientConnectionIP() {
+        try { return await apiCall('system-info'); }
+        catch { return null; }
+      },
+      
+      async loadPublicInfo() {
+        try {
+          const res = await fetch('https://api.ipify.org?format=json');
+          const ipData = await res.json();
+          document.getElementById('publicIP').textContent = ipData.ip;
+          
+          const geoRes = await fetch(`https://ipapi.co/${ipData.ip}/json/`);
+          const geo = await geoRes.json();
+          document.getElementById('country').innerHTML = `${geo.country_name || 'Unknown'} ${geo.country_code ? `<img src="https://flagcdn.com/16x12/${geo.country_code.toLowerCase()}.png">` : ''}`;
+        } catch {
+          document.getElementById('publicIP').textContent = 'Error';
+        }
+      }
+    };
+
+    // ========= TARGET SYSTEM MODULE =========
+    const TargetSystem = {
+      targets: [
+        { key: 'dns.google', name: 'Google DNS', host: '8.8.8.8' },
+        { key: 'cloudflare.com', name: 'Cloudflare', host: '1.1.1.1' },
+        { key: 'google.com', name: 'Google', host: 'google.com' },
+        { key: 'github.com', name: 'GitHub', host: 'github.com' },
+        { key: '9.9.9.9', name: 'Quad9', host: '9.9.9.9' }
+      ],
+
+      renderTargets() {
+        document.getElementById('targetsList').innerHTML = this.targets.map((t, i) => `
+          <div class="ts-item" id="row-${i}" onclick="TargetSystem.toggleDetails(${i}, '${t.key}')">
+            <div class="ts-item-info">
+              <svg class="ts-check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="16 9 12 15 8 11"/>
+              </svg>
+              <div style="font-weight:600; font-size:0.9rem; text-transform:uppercase;">${t.name}</div>
+            </div>
+            <div class="ts-ping-val" id="ping-${i}">...</div>
+          </div>
+          <div class="ts-details-panel" id="details-${i}" style="display:none; padding:1rem; background:hsl(var(--bg)/0.2); margin-bottom:0.5rem; border-radius:8px;">
+            <div class="detail-grid" id="grid-${i}">Loading...</div>
+          </div>
+        `).join('');
+      },
+      
+      async checkAllTargets() { this.targets.forEach((t, i) => this.checkTarget(i)); },
+      
+      async checkTarget(i) {
+        const pingEl = document.getElementById(`ping-${i}`);
+        const row = document.getElementById(`row-${i}`);
+        const icon = row ? row.querySelector('.ts-check-icon') : null;
+        
+        if (pingEl) pingEl.style.opacity = '0.5';
+        
+        try {
+          const json = await apiCall('ping', { host: this.targets[i].key });
+          const res = json.data;
+          
+          if (pingEl) pingEl.style.opacity = '1';
+          
+          let latency = 999, displayTxt = 'Err';
+          if (res && res.latency !== -1) { latency = res.latency; displayTxt = latency + 'ms'; }
+          if (pingEl) pingEl.textContent = displayTxt;
+          
+          if (latency < 50) { 
+            if (pingEl) pingEl.className = 'ts-ping-val good'; 
+            if (icon) icon.style.color = 'hsl(var(--accent-green))'; 
+          } else if (latency < 150) { 
+            if (pingEl) pingEl.className = 'ts-ping-val fair'; 
+            if (icon) icon.style.color = 'hsl(var(--accent-orange))'; 
+          } else { 
+            if (pingEl) pingEl.className = 'ts-ping-val poor'; 
+            if (icon) icon.style.color = 'hsl(var(--error))'; 
+          }
+        } catch {
+          if (pingEl) { pingEl.textContent = 'Err'; pingEl.className = 'ts-ping-val poor'; pingEl.style.opacity = '1'; }
+          if (icon) icon.style.color = 'hsl(var(--error))';
+        }
+      },
+      
+      async toggleDetails(i, hostKey) {
+        const details = document.getElementById(`details-${i}`);
+        if(details.style.display === 'block') { details.style.display = 'none'; return; }
+        document.querySelectorAll('.ts-details-panel').forEach(d => d.style.display = 'none');
+        details.style.display = 'block';
+        
+        try {
+          document.getElementById(`grid-${i}`).innerHTML = '<div class="detail-item">Loading...</div>';
+          const json = await apiCall('details', { host: hostKey });
+          const d = json.data;
+          document.getElementById(`grid-${i}`).innerHTML = `
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.8rem;">
+              <div><span style="color:hsl(var(--text-muted))">Server Ping:</span> <span style="color:hsl(var(--accent-cyan))">${d.total_time}</span></div>
+              <div><span style="color:hsl(var(--text-muted))">HTTP Code:</span> <span style="color:hsl(var(--accent-cyan))">${d.http_code}</span></div>
+              <div><span style="color:hsl(var(--text-muted))">Security:</span> <span style="color:hsl(var(--accent-cyan))">${d.ssl_verify}</span></div>
+            </div>
+          `;
+        } catch {
+          document.getElementById(`grid-${i}`).innerHTML = `<div style="color:hsl(var(--error))">Server Check Failed</div>`;
+        }
+      },
+      
+      refresh() { this.renderTargets(); this.checkAllTargets(); }
+    };
+
+    document.getElementById('refreshBtn').onclick = () => TargetSystem.refresh();
+
+    // ========= SPEED TEST MODULE =========
+    const SpeedTest = {
+      config: {
+        downloadSize: 25000000,
+        uploadSize: 20 * 1024 * 1024,
+        uploadProxyEndpoint: '/api/upload-proxy',
+        concurrentStreams: 4,
+        minTestDuration: 3000
+      },
+      
+      state: { latencies: [], minLatency: Infinity, maxLatency: 0, currentJitter: 0, packetLoss: 0, downloadHistory: [], uploadHistory: [], streamProgress: [], isUploading: false, isRunning: false },
+      
+      resetState() {
+        this.state = { latencies: [], minLatency: Infinity, maxLatency: 0, currentJitter: 0, packetLoss: 0, downloadHistory: [], uploadHistory: [], streamProgress: new Array(this.config.concurrentStreams).fill(0), isUploading: false, isRunning: false };
+      },
+      
+      async measureLatency(samples = 10) {
+        try { await fetch('https://speed.cloudflare.com/__down?bytes=0', { cache: 'no-store', mode: 'cors' }); } catch {}
+        const latencies = [];
+        for (let i = 0; i < samples; i++) {
+          try {
+            const start = performance.now();
+            const response = await fetch('https://speed.cloudflare.com/__down?bytes=0', { cache: 'no-store', mode: 'cors' });
+            const end = performance.now();
+            if (!response.ok) throw new Error();
+            const latency = end - start;
+            latencies.push(latency);
+            this.state.latencies.push(latency);
+            if (latency < this.state.minLatency) this.state.minLatency = latency;
+            if (latency > this.state.maxLatency) this.state.maxLatency = latency;
+            const latEl = document.getElementById('latency');
+            if (latEl) latEl.textContent = latency.toFixed(0) + ' ms';
+            await new Promise(r => setTimeout(r, 50));
+          } catch {}
+        }
+        if (latencies.length > 1) {
+          const mean = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+          const variance = latencies.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / latencies.length;
+          this.state.currentJitter = Math.sqrt(variance);
+        }
+        this.state.packetLoss = ((samples - latencies.length) / samples) * 100;
+        return latencies.length > 0 ? Math.min(...latencies) : null;
+      },
+      
+      async testDownload() {
+        const dlEl = document.getElementById('dlSpeed');
+        if (dlEl) dlEl.textContent = '0.0';
+        this.state.streamProgress = new Array(this.config.concurrentStreams).fill(0);
+        const startTime = performance.now();
+        const streams = [];
+        for(let i=0; i<this.config.concurrentStreams; i++) streams.push(this.runDownloadStream(i));
+        
+        return new Promise((resolve, reject) => {
+          const interval = setInterval(() => {
+            const now = performance.now();
+            const totalLoaded = this.state.streamProgress.reduce((a, b) => a + b, 0);
+            const elapsed = (now - startTime) / 1000;
+            if (elapsed > 0) {
+              const currentMbps = ((totalLoaded * 8) / 1000000) / elapsed;
+              if (dlEl) dlEl.textContent = currentMbps.toFixed(1);
+              this.state.downloadHistory.push({ time: now - startTime, speed: currentMbps });
+            }
+          }, 60);
+          
+          Promise.all(streams).then(() => {
+            clearInterval(interval);
+            const totalTime = (performance.now() - startTime) / 1000;
+            const finalLoaded = this.state.streamProgress.reduce((a, b) => a + b, 0);
+            const mbps = ((finalLoaded * 8) / 1000000) / totalTime;
+            if (dlEl) dlEl.textContent = mbps.toFixed(1);
+            resolve(mbps);
+          }).catch(e => { clearInterval(interval); if (dlEl) dlEl.textContent = 'Err'; reject(e); });
+        });
+      },
+      
+      async runDownloadStream(index) {
+        try {
+          const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${this.config.downloadSize}`, { cache: 'no-store', mode: 'cors' });
+          if (!response.ok) throw new Error();
+          const reader = response.body.getReader();
+          let received = 0;
+          while(true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            received += value.length;
+            this.state.streamProgress[index] = received;
+          }
+        } catch {}
+      },
+      
+      async testUpload() {
+        const ulEl = document.getElementById('ulSpeed');
+        if (ulEl) ulEl.textContent = '0.0';
+        this.state.streamProgress = new Array(this.config.concurrentStreams).fill(0);
+        this.state.isUploading = true;
+        const startTime = performance.now();
+        
+        const chunkSize = 1024 * 1024;
+        const payload = new Uint8Array(chunkSize);
+        for (let i=0; i<1024; i++) payload[i] = i % 255;
+        let filled = 1024;
+        while (filled < chunkSize) { payload.copyWithin(filled, 0, Math.min(filled, chunkSize - filled)); filled *= 2; }
+
+        const streams = [];
+        for(let i=0; i<this.config.concurrentStreams; i++) streams.push(this.runUploadLoop(i, payload));
+        
+        return new Promise((resolve, reject) => {
+          const interval = setInterval(() => {
+            const now = performance.now();
+            const totalLoaded = this.state.streamProgress.reduce((a, b) => a + b, 0);
+            const elapsed = (now - startTime) / 1000;
+            if (elapsed > 0.2) {
+              const currentMbps = ((totalLoaded * 8) / 1000000) / elapsed;
+              if (ulEl) ulEl.textContent = currentMbps.toFixed(1);
+              this.state.uploadHistory.push({ time: now - startTime, speed: currentMbps });
+            }
+            if (elapsed > (this.config.minTestDuration / 1000) && totalLoaded > 5 * 1024 * 1024) {
+              this.state.isUploading = false;
+            }
+          }, 50);
+          
+          Promise.all(streams).then(() => {
+            clearInterval(interval);
+            const endTime = performance.now();
+            const totalTime = (endTime - startTime) / 1000;
+            const finalLoaded = this.state.streamProgress.reduce((a, b) => a + b, 0);
+            const mbps = ((finalLoaded * 8) / 1000000) / totalTime;
+            if (ulEl) ulEl.textContent = mbps.toFixed(1);
+            resolve(mbps);
+          }).catch(e => { clearInterval(interval); this.state.isUploading = false; if (ulEl) ulEl.textContent = 'Err'; reject(e); });
+        });
+      },
+      
+      async runUploadLoop(index, payload) {
+        let streamTotal = 0;
+        while (this.state.isUploading) {
+          try {
+            await this.performSingleUpload(payload);
+            streamTotal += payload.byteLength;
+            this.state.streamProgress[index] = streamTotal;
+          } catch { break; }
+        }
+      },
+
+      performSingleUpload(payload) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.addEventListener('load', () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error(`HTTP ${xhr.status}`)); });
+          xhr.addEventListener('error', () => reject(new Error('Network error')));
+          xhr.open('POST', this.config.uploadProxyEndpoint);
+          xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+          xhr.send(payload);
+        });
+      },
+
+      async runFullTest() {
+        const btn = document.getElementById('startSpeed');
+        if(btn) {
+          btn.disabled = true;
+          btn.style.borderColor = 'hsl(var(--accent-green))';
+          btn.style.color = 'hsl(var(--accent-green))';
+          btn.style.boxShadow = '0 0 15px hsl(var(--accent-green)/0.4)';
+          btn.textContent = '...';
+        }
+        
+        this.state.isRunning = true;
+        this.resetState();
+        
+        try {
+          await this.measureLatency();
+          await this.testDownload();
+          
+          if(btn) {
+            btn.style.borderColor = 'hsl(var(--accent-purple))';
+            btn.style.color = 'hsl(var(--accent-purple))';
+            btn.style.boxShadow = '0 0 15px hsl(var(--accent-purple)/0.4)';
+          }
+          await this.testUpload();
+        } catch(e) { console.error(e); }
+        finally {
+          this.state.isRunning = false;
+          if(btn) {
+            btn.disabled = false;
+            btn.style.borderColor = '';
+            btn.style.color = '';
+            btn.style.boxShadow = '';
+            btn.textContent = 'AGAIN';
+          }
+        }
+      }
+    };
+
+    document.getElementById('startSpeed').onclick = () => SpeedTest.runFullTest();
+
+    // ========= INIT =========
+    async function init() {
+      TargetSystem.renderTargets();
+      try {
+        await Promise.all([
+          EndUserInfo.loadSystemInfo(),
+          EndUserInfo.loadPublicInfo(),
+          TargetSystem.checkAllTargets()
+        ]);
+      } catch(e) { console.error(e); }
+    }
+
+    init();
+  </script>
+</body>
+</html>
