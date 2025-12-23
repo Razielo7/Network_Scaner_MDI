@@ -1180,6 +1180,20 @@
 
       async loadPublicInfo() {
         try {
+          // Try local API proxy first (for local server)
+          const localRes = await fetch('/api/public-ip');
+          if (localRes.ok) {
+            const data = await localRes.json();
+            if (data.success && data.data) {
+              document.getElementById('publicIP').textContent = data.data.ip;
+              document.getElementById('country').innerHTML = `${data.data.country} ${data.data.country_code ? `<img src="https://flagcdn.com/16x12/${data.data.country_code.toLowerCase()}.png">` : ''}`;
+              return;
+            }
+          }
+        } catch { /* Fall through to external API */ }
+
+        try {
+          // Fallback to external APIs (for Vercel or if local proxy fails)
           const res = await fetch('https://api.ipify.org?format=json');
           const ipData = await res.json();
           document.getElementById('publicIP').textContent = ipData.ip;
@@ -1409,6 +1423,49 @@
     };
 
     document.getElementById('refreshBtn').onclick = () => TargetSystem.refresh();
+
+    // ========= CUSTOM DOMAIN PING =========
+    const customInput = document.querySelector('.ts-search-input');
+    const goBtn = document.querySelector('.ts-go-btn');
+
+    async function pingCustomDomain() {
+      const host = customInput.value.trim();
+      if (!host) return;
+
+      // Show loading state
+      goBtn.disabled = true;
+      goBtn.innerHTML = '<span style="animation: spin 1s linear infinite; display:inline-block;">⏳</span>';
+
+      try {
+        const response = await fetch(`/api/ping-custom?host=${encodeURIComponent(host)}`);
+        const json = await response.json();
+
+        if (json.error) {
+          alert(`Error: ${json.error}`);
+        } else if (json.data) {
+          const latency = json.data.latency;
+          if (latency === -1) {
+            alert(`${host}: Unreachable or Timeout`);
+          } else {
+            alert(`${host}: ${latency}ms`);
+          }
+        }
+      } catch (e) {
+        alert(`Failed to ping ${host}: ${e.message}`);
+      }
+
+      // Reset button
+      goBtn.disabled = false;
+      goBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="5" y1="12" x2="19" y2="12" />
+        <polyline points="12 5 19 12 12 19" />
+      </svg>`;
+    }
+
+    if (goBtn) goBtn.onclick = pingCustomDomain;
+    if (customInput) customInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') pingCustomDomain();
+    });
 
     // ========= SPEED TEST MODULE =========
     const SpeedTest = {
