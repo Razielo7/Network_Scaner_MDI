@@ -1049,7 +1049,7 @@
     </div>
 
     <div
-      style="font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:hsl(var(--text-muted)); margin-bottom:1rem;">
+      style="font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:hsl(210 60% 35%); margin-bottom:1rem;">
       Connectivity Status</div>
 
     <div class="ts-list" id="targetsList"></div>
@@ -1068,10 +1068,13 @@
   </div>
 
   <!-- Speed Test Bar -->
-  <div class="di-bar" style="margin-top: -1rem; margin-bottom: 2rem;">
+  <div class="di-bar" style="margin-top: -1rem; margin-bottom: 2rem; padding: 1.5rem 1.5rem;">
     <div class="di-bar-item"
-      style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 1.5rem; margin-right: 1rem;">
-      <div style="font-size: 0.9rem; font-weight: 800; color: hsl(var(--accent-cyan)); letter-spacing: 1px;">INTERNET
+      style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 1.5rem; margin-right: 1rem; cursor:pointer;"
+      onclick="SpeedTest.runFullTest()">
+      <div id="speedTestLabel"
+        style="font-size: 0.9rem; font-weight: 800; color: hsl(var(--accent-cyan)); letter-spacing: 1px; transition: color 0.3s;">
+        INTERNET
         SPEED</div>
     </div>
 
@@ -1082,13 +1085,7 @@
       </div>
     </div>
 
-    <div class="di-sep"></div>
 
-    <div class="di-bar-item">
-      <button id="startSpeed" class="st-start-btn-small" title="Start Speed Test">GO</button>
-    </div>
-
-    <div class="di-sep"></div>
 
     <div class="di-bar-item">
       <span class="di-bar-label">Upload</span>
@@ -1569,13 +1566,12 @@
       },
 
       async runFullTest() {
-        const btn = document.getElementById('startSpeed');
-        if (btn) {
-          btn.disabled = true;
-          btn.style.borderColor = 'hsl(var(--accent-green))';
-          btn.style.color = 'hsl(var(--accent-green))';
-          btn.style.boxShadow = '0 0 15px hsl(var(--accent-green)/0.4)';
-          btn.textContent = '...';
+        if (this.state.isRunning) return; // Prevent double-click
+
+        const label = document.getElementById('speedTestLabel');
+        if (label) {
+          label.style.color = 'hsl(var(--accent-green))';
+          label.textContent = 'TESTING...';
         }
 
         this.state.isRunning = true;
@@ -1585,27 +1581,21 @@
           await this.measureLatency();
           await this.testDownload();
 
-          if (btn) {
-            btn.style.borderColor = 'hsl(var(--accent-purple))';
-            btn.style.color = 'hsl(var(--accent-purple))';
-            btn.style.boxShadow = '0 0 15px hsl(var(--accent-purple)/0.4)';
+          if (label) {
+            label.style.color = 'hsl(var(--accent-purple))';
+            label.textContent = 'UPLOADING...';
           }
           await this.testUpload();
         } catch (e) { console.error(e); }
         finally {
           this.state.isRunning = false;
-          if (btn) {
-            btn.disabled = false;
-            btn.style.borderColor = '';
-            btn.style.color = '';
-            btn.style.boxShadow = '';
-            btn.textContent = 'AGAIN';
+          if (label) {
+            label.style.color = 'hsl(var(--accent-cyan))';
+            label.textContent = 'INTERNET SPEED';
           }
         }
       }
     };
-
-    document.getElementById('startSpeed').onclick = () => SpeedTest.runFullTest();
 
     // ========= INIT =========
     async function init() {
