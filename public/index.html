@@ -1297,14 +1297,52 @@
 
         try {
           document.getElementById(`grid-${i}`).innerHTML = '<div style="color:hsl(var(--text-muted))">Loading details...</div>';
-          const json = await apiCall('details', { host: hostKey });
-          const d = json.data;
+
+          // Fetch both details and DNS records in parallel
+          const [detailsJson, dnsJson] = await Promise.all([
+            apiCall('details', { host: hostKey }),
+            apiCall('dns-records', { host: hostKey })
+          ]);
+          const d = detailsJson.data;
+          const dns = dnsJson.data || {};
 
           // Generate simulated tracert hops based on latency
           const baseLatency = parseInt(d.total_time) || 50;
           const hops = this.generateHops(hostKey, baseLatency);
 
+          // Format MX records
+          const mxHtml = dns.mx && dns.mx.length > 0
+            ? dns.mx.map(mx => `<div style="font-size:0.75rem; color:hsl(var(--text-muted))">${mx.priority} ${mx.exchange}</div>`).join('')
+            : '<span style="color:hsl(var(--text-muted))">N/A</span>';
+
+          // Format DMARC - extract just the policy if present
+          let dmarcDisplay = 'Not configured';
+          let dmarcColor = 'hsl(var(--accent-orange))';
+          if (dns.dmarc) {
+            const policyMatch = dns.dmarc.match(/p=([^;]+)/);
+            const policy = policyMatch ? policyMatch[1] : 'unknown';
+            dmarcDisplay = policy.charAt(0).toUpperCase() + policy.slice(1);
+            dmarcColor = policy === 'reject' ? 'hsl(var(--accent-green))' : policy === 'quarantine' ? 'hsl(var(--accent-orange))' : 'hsl(var(--text-muted))';
+          }
+
           document.getElementById(`grid-${i}`).innerHTML = `
+            <!-- DNS Info -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">🌐 DNS Info</div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Public IP</span>
+                <span class="ts-details-value">${dns.ip || 'N/A'}</span>
+              </div>
+              <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+                <span class="ts-details-label" style="margin-bottom:0.25rem;">MX Records</span>
+                <div style="width:100%">${mxHtml}</div>
+              </div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">DMARC Policy</span>
+                <span class="ts-details-value" style="color:${dmarcColor}">${dmarcDisplay}</span>
+              </div>
+            </div>
+
             <!-- TLS Connection -->
             <div class="ts-details-section">
               <div class="ts-details-title">🔒 TLS Connection</div>
@@ -1357,6 +1395,23 @@
           const hops = this.generateHops(hostKey, 45);
 
           document.getElementById(`grid-${i}`).innerHTML = `
+            <!-- DNS Info -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">🌐 DNS Info</div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Public IP</span>
+                <span class="ts-details-value">N/A</span>
+              </div>
+              <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+                <span class="ts-details-label" style="margin-bottom:0.25rem;">MX Records</span>
+                <div style="width:100%"><span style="color:hsl(var(--text-muted))">N/A</span></div>
+              </div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">DMARC Policy</span>
+                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
+              </div>
+            </div>
+
             <!-- TLS Connection -->
             <div class="ts-details-section">
               <div class="ts-details-title">🔒 TLS Connection</div>
@@ -1463,12 +1518,19 @@
           const json = await response.json();
 
           if (json.error) {
-            this.showResult(host, null, json.error);
+            this.showResult(host, null, null, json.error);
           } else if (json.data) {
-            this.showResult(host, json.data);
+            // Also fetch DNS records
+            try {
+              const dnsRes = await fetch(`/api/dns-records?host=${encodeURIComponent(host)}`);
+              const dnsJson = await dnsRes.json();
+              this.showResult(host, json.data, dnsJson.data || {});
+            } catch {
+              this.showResult(host, json.data, {});
+            }
           }
         } catch (e) {
-          this.showResult(host, null, e.message);
+          this.showResult(host, null, null, e.message);
         }
 
         // Reset button
@@ -1479,7 +1541,7 @@
         </svg>`;
       },
 
-      showResult(host, data, error = null) {
+      showResult(host, data, dns = {}, error = null) {
         this.resultEl.style.display = 'block';
 
         if (error || !data || data.latency === -1) {
@@ -1506,6 +1568,21 @@
         // Generate simulated traceroute hops
         const hops = this.generateHops(host, latency);
 
+        // Format MX records
+        const mxHtml = dns.mx && dns.mx.length > 0
+          ? dns.mx.map(mx => `<div style="font-size:0.75rem; color:hsl(var(--text-muted))">${mx.priority} ${mx.exchange}</div>`).join('')
+          : '<span style="color:hsl(var(--text-muted))">N/A</span>';
+
+        // Format DMARC
+        let dmarcDisplay = 'Not configured';
+        let dmarcColor = 'hsl(var(--accent-orange))';
+        if (dns.dmarc) {
+          const policyMatch = dns.dmarc.match(/p=([^;]+)/);
+          const policy = policyMatch ? policyMatch[1] : 'unknown';
+          dmarcDisplay = policy.charAt(0).toUpperCase() + policy.slice(1);
+          dmarcColor = policy === 'reject' ? 'hsl(var(--accent-green))' : policy === 'quarantine' ? 'hsl(var(--accent-orange))' : 'hsl(var(--text-muted))';
+        }
+
         this.resultEl.innerHTML = `
           <div class="ts-item" id="custom-row" onclick="CustomPing.toggleDetails()" style="border: 1px solid hsl(var(${latencyColor}) / 0.3);">
             <div class="ts-item-info">
@@ -1522,6 +1599,23 @@
             </div>
           </div>
           <div class="ts-details-panel" id="custom-details" style="display:none; padding:1rem; background:hsl(var(--bg)/0.4); margin-bottom:0.5rem; border-radius:8px; border:1px solid hsl(var(--border)/0.3);">
+            <!-- DNS Info -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">🌐 DNS Info</div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Public IP</span>
+                <span class="ts-details-value">${dns.ip || 'N/A'}</span>
+              </div>
+              <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+                <span class="ts-details-label" style="margin-bottom:0.25rem;">MX Records</span>
+                <div style="width:100%">${mxHtml}</div>
+              </div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">DMARC Policy</span>
+                <span class="ts-details-value" style="color:${dmarcColor}">${dmarcDisplay}</span>
+              </div>
+            </div>
+
             <!-- TLS Connection -->
             <div class="ts-details-section">
               <div class="ts-details-title">🔒 TLS Connection</div>

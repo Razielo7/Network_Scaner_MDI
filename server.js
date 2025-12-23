@@ -259,6 +259,79 @@ app.get('/api/details', async (req, res) => {
     }
 });
 
+// GET /api/dns-records - Get DNS records (A, MX, DMARC) for a domain
+app.get('/api/dns-records', async (req, res) => {
+    const host = req.query.host;
+    const dns = require('dns').promises;
+
+    if (!host) {
+        return res.status(400).json({ error: 'Host parameter required' });
+    }
+
+    // Extract domain from potential URL or IP
+    let domain = host.replace(/^https?:\/\//, '').replace(/\/.*/g, '');
+
+    // Skip IP addresses
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (ipRegex.test(domain)) {
+        return res.json({
+            success: true,
+            data: {
+                ip: domain,
+                mx: [],
+                dmarc: null,
+                isIP: true
+            }
+        });
+    }
+
+    const result = {
+        ip: null,
+        mx: [],
+        dmarc: null
+    };
+
+    try {
+        // Get A records (IP addresses)
+        try {
+            const addresses = await dns.resolve4(domain);
+            result.ip = addresses[0] || null;
+        } catch (e) {
+            // Try AAAA if no A record
+            try {
+                const addresses = await dns.resolve6(domain);
+                result.ip = addresses[0] || null;
+            } catch { }
+        }
+
+        // Get MX records
+        try {
+            const mxRecords = await dns.resolveMx(domain);
+            result.mx = mxRecords.sort((a, b) => a.priority - b.priority).slice(0, 3).map(r => ({
+                priority: r.priority,
+                exchange: r.exchange
+            }));
+        } catch { }
+
+        // Get DMARC record (TXT record at _dmarc subdomain)
+        try {
+            const txtRecords = await dns.resolveTxt(`_dmarc.${domain}`);
+            const dmarcRecord = txtRecords.flat().find(r => r.startsWith('v=DMARC'));
+            result.dmarc = dmarcRecord || null;
+        } catch { }
+
+        return res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        return res.json({
+            success: true,
+            data: result
+        });
+    }
+});
+
 // POST /api/upload-proxy - Proxies upload data to Cloudflare speed test
 app.post('/api/upload-proxy', async (req, res) => {
     const CLOUDFLARE_UPLOAD_ENDPOINT = 'https://speed.cloudflare.com/__up';
