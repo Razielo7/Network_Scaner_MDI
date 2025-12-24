@@ -1343,7 +1343,7 @@
           document.getElementById(`grid-${i}`).innerHTML = `
             <!-- DNS and MX Record Accuracy -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📋 DNS & MX RECORD ACCURACY</div>
+              <div class="ts-details-title">DNS and MX RECORD ACCURACY</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">DNS Resolution</span>
                 <span class="ts-details-value" style="color:${dns.ip ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${dns.ip ? '✓ Resolved' : '✗ Failed'}</span>
@@ -1364,7 +1364,7 @@
 
             <!-- Blacklist Checks -->
             <div class="ts-details-section">
-              <div class="ts-details-title">🛡️ BLACKLIST CHECKS</div>
+              <div class="ts-details-title">BLACKLIST CHECKS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Domain Status</span>
                 <span class="ts-details-value" style="color:${blacklistColor}">${blacklistStatus}</span>
@@ -1381,7 +1381,7 @@
 
             <!-- SPF, DKIM, and DMARC Validation -->
             <div class="ts-details-section">
-              <div class="ts-details-title">✉️ EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
+              <div class="ts-details-title">EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">SPF Record</span>
                 <span class="ts-details-value" style="color:${spfColor}">${spfStatus}</span>
@@ -1402,7 +1402,7 @@
 
             <!-- Latency and Server Response Time -->
             <div class="ts-details-section">
-              <div class="ts-details-title">⚡ LATENCY & SERVER RESPONSE</div>
+              <div class="ts-details-title">LATENCY and SERVER RESPONSE</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Response Time</span>
                 <span class="ts-details-value">${d.total_time}</span>
@@ -1423,7 +1423,7 @@
 
             <!-- TLS Connection -->
             <div class="ts-details-section">
-              <div class="ts-details-title">🔒 TLS CONNECTION</div>
+              <div class="ts-details-title">TLS CONNECTION</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Protocol</span>
                 <span class="ts-details-value">${d.ssl_verify === 'TLS/SSL' ? 'TLS 1.3' : 'None'}</span>
@@ -1440,7 +1440,7 @@
             
             <!-- Security Matters -->
             <div class="ts-details-section">
-              <div class="ts-details-title">🔐 SECURITY STATUS</div>
+              <div class="ts-details-title">SECURITY STATUS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">HTTPS</span>
                 <span class="ts-details-value" style="color:${d.ssl_verify === 'TLS/SSL' ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${d.ssl_verify === 'TLS/SSL' ? '✓ Secure' : '✗ Insecure'}</span>
@@ -1453,7 +1453,7 @@
 
             <!-- Email Header Analysis -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📧 EMAIL HEADER ANALYSIS</div>
+              <div class="ts-details-title">EMAIL HEADER ANALYSIS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Routing Status</span>
                 <span class="ts-details-value" style="color:${dns.mx && dns.mx.length > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--text-muted))'}">${dns.mx && dns.mx.length > 0 ? '✓ Proper Routing' : 'N/A'}</span>
@@ -1470,7 +1470,7 @@
             
             <!-- Tracert -d -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📍 TRACEROUTE (-D)</div>
+              <div class="ts-details-title">TRACEROUTE (-D)</div>
               ${hops.map((hop, idx) => `
                 <div class="ts-tracert-hop">
                   <span class="ts-hop-num">${idx + 1}</span>
@@ -1488,7 +1488,7 @@
           document.getElementById(`grid-${i}`).innerHTML = `
             <!-- DNS and MX Record Accuracy -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📋 DNS & MX RECORD ACCURACY</div>
+              <div class="ts-details-title">DNS and MX RECORD ACCURACY</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">DNS Resolution</span>
                 <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
@@ -1509,7 +1509,7 @@
 
             <!-- Blacklist Checks -->
             <div class="ts-details-section">
-              <div class="ts-details-title">🛡️ BLACKLIST CHECKS</div>
+              <div class="ts-details-title">BLACKLIST CHECKS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Domain Status</span>
                 <span class="ts-details-value" style="color:hsl(var(--accent-green))">Clean</span>
@@ -1526,7 +1526,7 @@
 
             <!-- SPF, DKIM, and DMARC Validation -->
             <div class="ts-details-section">
-              <div class="ts-details-title">✉️ EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
+              <div class="ts-details-title">EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">SPF Record</span>
                 <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
@@ -1547,7 +1547,7 @@
 
             <!-- Latency and Server Response Time -->
             <div class="ts-details-section">
-              <div class="ts-details-title">⚡ LATENCY & SERVER RESPONSE</div>
+              <div class="ts-details-title">LATENCY and SERVER RESPONSE</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Response Time</span>
                 <span class="ts-details-value">${d.total_time}</span>
@@ -1568,7 +1568,7 @@
 
             <!-- TLS Connection -->
             <div class="ts-details-section">
-              <div class="ts-details-title">🔒 TLS CONNECTION</div>
+              <div class="ts-details-title">TLS CONNECTION</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Protocol</span>
                 <span class="ts-details-value">TLS 1.3</span>
@@ -1585,7 +1585,7 @@
             
             <!-- Security Status -->
             <div class="ts-details-section">
-              <div class="ts-details-title">🔐 SECURITY STATUS</div>
+              <div class="ts-details-title">SECURITY STATUS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">HTTPS</span>
                 <span class="ts-details-value" style="color:hsl(var(--accent-green))">✓ Secure</span>
@@ -1598,7 +1598,7 @@
 
             <!-- Email Header Analysis -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📧 EMAIL HEADER ANALYSIS</div>
+              <div class="ts-details-title">EMAIL HEADER ANALYSIS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Routing Status</span>
                 <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
@@ -1615,7 +1615,7 @@
             
             <!-- Tracert -d -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📍 TRACEROUTE (-D)</div>
+              <div class="ts-details-title">TRACEROUTE (-D)</div>
               ${hops.map((hop, idx) => `
                 <div class="ts-tracert-hop">
                   <span class="ts-hop-num">${idx + 1}</span>
@@ -1783,7 +1783,7 @@
           <div class="ts-details-panel" id="custom-details" style="display:none; padding:1rem; background:hsl(var(--bg)/0.4); margin-bottom:0.5rem; border-radius:8px; border:1px solid hsl(var(--border)/0.3);">
             <!-- DNS and MX Record Accuracy -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📋 DNS & MX RECORD ACCURACY</div>
+              <div class="ts-details-title">DNS and MX RECORD ACCURACY</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">DNS Resolution</span>
                 <span class="ts-details-value" style="color:${dns.ip ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${dns.ip ? '✓ Resolved' : '✗ Failed'}</span>
@@ -1804,7 +1804,7 @@
 
             <!-- Blacklist Checks -->
             <div class="ts-details-section">
-              <div class="ts-details-title">🛡️ BLACKLIST CHECKS</div>
+              <div class="ts-details-title">BLACKLIST CHECKS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Domain Status</span>
                 <span class="ts-details-value" style="color:hsl(var(--accent-green))">Clean</span>
@@ -1821,7 +1821,7 @@
 
             <!-- SPF, DKIM, and DMARC Validation -->
             <div class="ts-details-section">
-              <div class="ts-details-title">✉️ EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
+              <div class="ts-details-title">EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">SPF Record</span>
                 <span class="ts-details-value" style="color:${spfColor}">${spfStatus}</span>
@@ -1842,7 +1842,7 @@
 
             <!-- Latency and Server Response Time -->
             <div class="ts-details-section">
-              <div class="ts-details-title">⚡ LATENCY & SERVER RESPONSE</div>
+              <div class="ts-details-title">LATENCY and SERVER RESPONSE</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Response Time</span>
                 <span class="ts-details-value">${latency} ms</span>
@@ -1863,7 +1863,7 @@
 
             <!-- TLS Connection -->
             <div class="ts-details-section">
-              <div class="ts-details-title">🔒 TLS CONNECTION</div>
+              <div class="ts-details-title">TLS CONNECTION</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Protocol</span>
                 <span class="ts-details-value">${isSecure ? 'TLS 1.3' : 'Unknown'}</span>
@@ -1880,7 +1880,7 @@
             
             <!-- Security Status -->
             <div class="ts-details-section">
-              <div class="ts-details-title">� SECURITY STATUS</div>
+              <div class="ts-details-title">SECURITY STATUS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">HTTPS</span>
                 <span class="ts-details-value" style="color:${isSecure ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${isSecure ? '✓ Secure' : '? Unknown'}</span>
@@ -1893,7 +1893,7 @@
 
             <!-- Email Header Analysis -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📧 EMAIL HEADER ANALYSIS</div>
+              <div class="ts-details-title">EMAIL HEADER ANALYSIS</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Routing Status</span>
                 <span class="ts-details-value" style="color:${dns.mx && dns.mx.length > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--text-muted))'}">${dns.mx && dns.mx.length > 0 ? '✓ Proper Routing' : 'N/A'}</span>
@@ -1910,7 +1910,7 @@
             
             <!-- Traceroute -->
             <div class="ts-details-section">
-              <div class="ts-details-title">📍 TRACEROUTE (-D)</div>
+              <div class="ts-details-title">TRACEROUTE (-D)</div>
               ${hops.map((hop, idx) => `
                 <div class="ts-tracert-hop">
                   <span class="ts-hop-num">${idx + 1}</span>
