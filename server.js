@@ -341,6 +341,137 @@ app.get('/api/dns-records', async (req, res) => {
     }
 });
 
+// GET /api/email-auth - Comprehensive email authentication check (SPF, DKIM, DMARC)
+app.get('/api/email-auth', async (req, res) => {
+    const host = req.query.host;
+    const dns = require('dns').promises;
+
+    if (!host) {
+        return res.status(400).json({ error: 'Host parameter required' });
+    }
+
+    // Extract domain from potential URL or IP
+    let domain = host.replace(/^https?:\/\//, '').replace(/\/.*/g, '');
+
+    // Skip IP addresses
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (ipRegex.test(domain)) {
+        return res.json({
+            success: true,
+            data: {
+                isIP: true,
+                spf: { found: false, record: null, valid: false },
+                dkim: { found: false, selector: null, record: null },
+                dmarc: { found: false, record: null, policy: null, subdomainPolicy: null, pct: null },
+                mx: [],
+                smtp: { hasMailServer: false, starttls: 'unknown', ports: [] }
+            }
+        });
+    }
+
+    const result = {
+        domain: domain,
+        spf: { found: false, record: null, valid: false, mechanisms: [] },
+        dkim: { found: false, selector: null, record: null, keyType: null },
+        dmarc: { found: false, record: null, policy: null, subdomainPolicy: null, pct: 100, rua: null, ruf: null },
+        mx: [],
+        smtp: { hasMailServer: false, starttls: 'likely', ports: ['25', '587', '465'] }
+    };
+
+    // Common DKIM selectors to try
+    const dkimSelectors = ['default', 'google', 'selector1', 'selector2', 'dkim', 'mail', 'k1', 's1', 's2', 'zoho'];
+
+    try {
+        // Get SPF record
+        try {
+            const txtRecords = await dns.resolveTxt(domain);
+            const spfRecord = txtRecords.flat().find(r => r.startsWith('v=spf1'));
+            if (spfRecord) {
+                result.spf.found = true;
+                result.spf.record = spfRecord;
+                result.spf.valid = true;
+                // Parse mechanisms
+                const mechanisms = spfRecord.match(/(?:include:|a:|mx:|ip4:|ip6:|all|-all|~all|\+all|\?all)/g);
+                result.spf.mechanisms = mechanisms || [];
+            }
+        } catch { }
+
+        // Try DKIM selectors
+        for (const selector of dkimSelectors) {
+            try {
+                const dkimRecords = await dns.resolveTxt(`${selector}._domainkey.${domain}`);
+                const dkimRecord = dkimRecords.flat().join('');
+                if (dkimRecord && dkimRecord.includes('v=DKIM1')) {
+                    result.dkim.found = true;
+                    result.dkim.selector = selector;
+                    result.dkim.record = dkimRecord.length > 100 ? dkimRecord.substring(0, 100) + '...' : dkimRecord;
+                    // Extract key type
+                    const keyMatch = dkimRecord.match(/k=([^;]+)/);
+                    result.dkim.keyType = keyMatch ? keyMatch[1] : 'rsa';
+                    break; // Found one, stop looking
+                }
+            } catch { }
+        }
+
+        // Get DMARC record
+        try {
+            const dmarcRecords = await dns.resolveTxt(`_dmarc.${domain}`);
+            const dmarcRecord = dmarcRecords.flat().find(r => r.includes('DMARC'));
+            if (dmarcRecord) {
+                result.dmarc.found = true;
+                result.dmarc.record = dmarcRecord;
+                // Parse DMARC tags
+                const policyMatch = dmarcRecord.match(/p=([^;]+)/);
+                const spMatch = dmarcRecord.match(/sp=([^;]+)/);
+                const pctMatch = dmarcRecord.match(/pct=(\d+)/);
+                const ruaMatch = dmarcRecord.match(/rua=([^;]+)/);
+                const rufMatch = dmarcRecord.match(/ruf=([^;]+)/);
+
+                result.dmarc.policy = policyMatch ? policyMatch[1].trim() : null;
+                result.dmarc.subdomainPolicy = spMatch ? spMatch[1].trim() : result.dmarc.policy;
+                result.dmarc.pct = pctMatch ? parseInt(pctMatch[1]) : 100;
+                result.dmarc.rua = ruaMatch ? ruaMatch[1].trim() : null;
+                result.dmarc.ruf = rufMatch ? rufMatch[1].trim() : null;
+            }
+        } catch { }
+
+        // Get MX records for mail server info
+        try {
+            const mxRecords = await dns.resolveMx(domain);
+            result.mx = mxRecords.sort((a, b) => a.priority - b.priority).slice(0, 5).map(r => ({
+                priority: r.priority,
+                exchange: r.exchange
+            }));
+            result.smtp.hasMailServer = result.mx.length > 0;
+
+            // If MX records point to known providers, we can infer STARTTLS support
+            const mxString = result.mx.map(m => m.exchange.toLowerCase()).join(' ');
+            if (mxString.includes('google') || mxString.includes('gmail')) {
+                result.smtp.starttls = 'yes (Google Workspace)';
+            } else if (mxString.includes('outlook') || mxString.includes('microsoft')) {
+                result.smtp.starttls = 'yes (Microsoft 365)';
+            } else if (mxString.includes('zoho')) {
+                result.smtp.starttls = 'yes (Zoho)';
+            } else if (mxString.includes('protonmail')) {
+                result.smtp.starttls = 'yes (ProtonMail)';
+            } else {
+                result.smtp.starttls = 'likely (check manually)';
+            }
+        } catch { }
+
+        return res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        return res.json({
+            success: true,
+            data: result
+        });
+    }
+});
+
+
 // POST /api/upload-proxy - Proxies upload data to Cloudflare speed test
 app.post('/api/upload-proxy', async (req, res) => {
     const CLOUDFLARE_UPLOAD_ENDPOINT = 'https://speed.cloudflare.com/__up';

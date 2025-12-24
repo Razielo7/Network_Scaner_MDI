@@ -1293,44 +1293,106 @@
         try {
           document.getElementById(`grid-${i}`).innerHTML = '<div style="color:hsl(var(--text-muted))">Loading details...</div>';
 
-          // Fetch both details and DNS records in parallel
-          const [detailsJson, dnsJson] = await Promise.all([
+          // Fetch details, DNS records, and email auth in parallel
+          const [detailsJson, dnsJson, emailAuthJson] = await Promise.all([
             apiCall('details', { host: hostKey }),
-            apiCall('dns-records', { host: hostKey })
+            apiCall('dns-records', { host: hostKey }),
+            apiCall('email-auth', { host: hostKey })
           ]);
           const d = detailsJson.data;
           const dns = dnsJson.data || {};
+          const emailAuth = emailAuthJson.data || {};
 
           // Generate simulated tracert hops based on latency
           const baseLatency = parseInt(d.total_time) || 50;
           const hops = this.generateHops(hostKey, baseLatency);
 
           // Format MX records
-          const mxHtml = dns.mx && dns.mx.length > 0
-            ? dns.mx.map(mx => `<div style="font-size:0.75rem; color:hsl(var(--text-muted))">${mx.priority} ${mx.exchange}</div>`).join('')
-            : '<span style="color:hsl(var(--text-muted))">N/A</span>';
+          const mxList = emailAuth.mx && emailAuth.mx.length > 0 ? emailAuth.mx : (dns.mx || []);
+          const mxHtml = mxList.length > 0
+            ? mxList.map(mx => `<div style="font-size:0.75rem; color:hsl(var(--text-muted))">${mx.priority} ${mx.exchange}</div>`).join('')
+            : '<span style="color:hsl(var(--accent-orange))">❌ Not configured</span>';
 
-          // Format DMARC - extract just the policy if present
-          let dmarcDisplay = 'Not configured';
-          let dmarcColor = 'hsl(var(--accent-orange))';
-          if (dns.dmarc) {
-            const policyMatch = dns.dmarc.match(/p=([^;]+)/);
-            const policy = policyMatch ? policyMatch[1] : 'unknown';
-            dmarcDisplay = policy.charAt(0).toUpperCase() + policy.slice(1);
-            dmarcColor = policy === 'reject' ? 'hsl(var(--accent-green))' : policy === 'quarantine' ? 'hsl(var(--accent-orange))' : 'hsl(var(--text-muted))';
-          }
-
-          // SPF record check
-          let spfStatus = 'Not configured';
-          let spfColor = 'hsl(var(--accent-orange))';
-          if (dns.spf) {
+          // SPF Record Display - FULL RECORD
+          let spfHtml = '<span style="color:hsl(var(--accent-orange))">❌ Not configured</span>';
+          let spfStatus = '❌ Missing';
+          let spfColor = 'hsl(var(--error))';
+          if (emailAuth.spf && emailAuth.spf.found) {
             spfStatus = '✓ Valid';
             spfColor = 'hsl(var(--accent-green))';
+            spfHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">${emailAuth.spf.record}</div>`;
+          } else if (dns.spf) {
+            spfStatus = '✓ Valid';
+            spfColor = 'hsl(var(--accent-green))';
+            spfHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">${dns.spf}</div>`;
           }
 
-          // DKIM simulation (since we can't query DKIM directly without selector)
-          let dkimStatus = dns.ip ? 'Check Required' : 'N/A';
-          let dkimColor = dns.ip ? 'hsl(var(--accent-orange))' : 'hsl(var(--text-muted))';
+          // DKIM Display - WITH SELECTOR
+          let dkimStatus = '❌ Not found';
+          let dkimColor = 'hsl(var(--error))';
+          let dkimHtml = '<span style="color:hsl(var(--accent-orange))">Not found (tried common selectors)</span>';
+          if (emailAuth.dkim && emailAuth.dkim.found) {
+            dkimStatus = `✓ Found (${emailAuth.dkim.selector})`;
+            dkimColor = 'hsl(var(--accent-green))';
+            dkimHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">Selector: ${emailAuth.dkim.selector}<br>Key: ${emailAuth.dkim.keyType || 'rsa'}<br>${emailAuth.dkim.record}</div>`;
+          }
+
+          // DMARC Display - FULL RECORD WITH POLICY
+          let dmarcStatus = '❌ Not configured';
+          let dmarcColor = 'hsl(var(--error))';
+          let dmarcHtml = '<span style="color:hsl(var(--accent-orange))">❌ Not configured</span>';
+          let dmarcPolicyDisplay = 'None';
+          if (emailAuth.dmarc && emailAuth.dmarc.found) {
+            const policy = emailAuth.dmarc.policy || 'none';
+            dmarcPolicyDisplay = policy.charAt(0).toUpperCase() + policy.slice(1);
+            if (policy === 'reject') {
+              dmarcStatus = '✓ Reject (strict)';
+              dmarcColor = 'hsl(var(--accent-green))';
+            } else if (policy === 'quarantine') {
+              dmarcStatus = '⚠ Quarantine';
+              dmarcColor = 'hsl(var(--accent-orange))';
+            } else {
+              dmarcStatus = '⚠ None (monitoring)';
+              dmarcColor = 'hsl(var(--accent-orange))';
+            }
+            dmarcHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">${emailAuth.dmarc.record}</div>`;
+          } else if (dns.dmarc) {
+            const policyMatch = dns.dmarc.match(/p=([^;]+)/);
+            const policy = policyMatch ? policyMatch[1] : 'none';
+            dmarcPolicyDisplay = policy.charAt(0).toUpperCase() + policy.slice(1);
+            if (policy === 'reject') {
+              dmarcStatus = '✓ Reject (strict)';
+              dmarcColor = 'hsl(var(--accent-green))';
+            } else {
+              dmarcStatus = `⚠ ${policy}`;
+              dmarcColor = 'hsl(var(--accent-orange))';
+            }
+            dmarcHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">${dns.dmarc}</div>`;
+          }
+
+          // SMTP/Mail TLS Info
+          const smtpInfo = emailAuth.smtp || {};
+          const hasMailServer = smtpInfo.hasMailServer || (mxList.length > 0);
+          const starttls = smtpInfo.starttls || 'unknown';
+
+          // Overall email auth score
+          const spfOk = emailAuth.spf?.found || dns.spf;
+          const dkimOk = emailAuth.dkim?.found;
+          const dmarcOk = emailAuth.dmarc?.found || dns.dmarc;
+          let authScore = 0;
+          if (spfOk) authScore++;
+          if (dkimOk) authScore++;
+          if (dmarcOk) authScore++;
+
+          let overallStatus = 'Critical Issues';
+          let overallColor = 'hsl(var(--error))';
+          if (authScore === 3) {
+            overallStatus = '✓ Fully Compliant';
+            overallColor = 'hsl(var(--accent-green))';
+          } else if (authScore >= 1) {
+            overallStatus = '⚠ Partial Configuration';
+            overallColor = 'hsl(var(--accent-orange))';
+          }
 
           // Blacklist simulation
           const blacklistStatus = 'Clean';
@@ -1341,24 +1403,117 @@
           const serverHealthy = responseTime < 200;
 
           document.getElementById(`grid-${i}`).innerHTML = `
-            <!-- DNS and MX Record Accuracy -->
+            <!-- EMAIL AUTHENTICATION RECORDS (FULL) -->
             <div class="ts-details-section">
-              <div class="ts-details-title">DNS and MX RECORD ACCURACY</div>
+              <div class="ts-details-title">EMAIL AUTHENTICATION RECORDS</div>
               <div class="ts-details-row">
-                <span class="ts-details-label">DNS Resolution</span>
-                <span class="ts-details-value" style="color:${dns.ip ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${dns.ip ? '✓ Resolved' : '✗ Failed'}</span>
+                <span class="ts-details-label">Overall Status</span>
+                <span class="ts-details-value" style="color:${overallColor}">${overallStatus} (${authScore}/3)</span>
+              </div>
+            </div>
+
+            <!-- SPF RECORD (FULL) -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">SPF RECORD</div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Status</span>
+                <span class="ts-details-value" style="color:${spfColor}">${spfStatus}</span>
+              </div>
+              <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+                <span class="ts-details-label" style="margin-bottom:0.25rem;">Full Record Value</span>
+                ${spfHtml}
+              </div>
+            </div>
+
+            <!-- DKIM RECORD -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">DKIM RECORD</div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Status</span>
+                <span class="ts-details-value" style="color:${dkimColor}">${dkimStatus}</span>
+              </div>
+              <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+                <span class="ts-details-label" style="margin-bottom:0.25rem;">Selector & Public Key</span>
+                ${dkimHtml}
+              </div>
+            </div>
+
+            <!-- DMARC RECORD -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">DMARC RECORD</div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Policy</span>
+                <span class="ts-details-value" style="color:${dmarcColor}">${dmarcStatus}</span>
+              </div>
+              ${emailAuth.dmarc?.subdomainPolicy ? `
+              <div class="ts-details-row">
+                <span class="ts-details-label">Subdomain Policy</span>
+                <span class="ts-details-value">${emailAuth.dmarc.subdomainPolicy}</span>
+              </div>` : ''}
+              ${emailAuth.dmarc?.pct ? `
+              <div class="ts-details-row">
+                <span class="ts-details-label">Percentage</span>
+                <span class="ts-details-value">${emailAuth.dmarc.pct}%</span>
+              </div>` : ''}
+              ${emailAuth.dmarc?.rua ? `
+              <div class="ts-details-row">
+                <span class="ts-details-label">Aggregate Reports</span>
+                <span class="ts-details-value" style="font-size:0.7rem;">${emailAuth.dmarc.rua}</span>
+              </div>` : ''}
+              <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+                <span class="ts-details-label" style="margin-bottom:0.25rem;">Full Record Content</span>
+                ${dmarcHtml}
+              </div>
+            </div>
+
+            <!-- SMTP/MAIL SERVER INFO -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">SMTP / MAIL SERVER</div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Mail Server</span>
+                <span class="ts-details-value" style="color:${hasMailServer ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${hasMailServer ? '✓ Configured' : '❌ No MX records'}</span>
               </div>
               <div class="ts-details-row">
-                <span class="ts-details-label">Public IP</span>
-                <span class="ts-details-value">${dns.ip || 'N/A'}</span>
+                <span class="ts-details-label">STARTTLS Support</span>
+                <span class="ts-details-value">${starttls}</span>
+              </div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Expected Ports</span>
+                <span class="ts-details-value">25 (SMTP), 587 (Submission), 465 (SMTPS)</span>
               </div>
               <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
                 <span class="ts-details-label" style="margin-bottom:0.25rem;">MX Records</span>
                 <div style="width:100%">${mxHtml}</div>
               </div>
+            </div>
+
+            <!-- DNS and IP INFO -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">DNS RESOLUTION</div>
               <div class="ts-details-row">
-                <span class="ts-details-label">MX Configuration</span>
-                <span class="ts-details-value" style="color:${dns.mx && dns.mx.length > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${dns.mx && dns.mx.length > 0 ? '✓ Configured' : '⚠ Not Found'}</span>
+                <span class="ts-details-label">DNS Resolution</span>
+                <span class="ts-details-value" style="color:${dns.ip ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${dns.ip ? '✓ Resolved' : '✗ Failed'}</span>
+              </div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Primary IP</span>
+                <span class="ts-details-value">${dns.ip || 'N/A'}</span>
+              </div>
+            </div>
+
+            <!-- TLS Connection (WEB) -->
+            <div class="ts-details-section">
+              <div class="ts-details-title">WEB TLS / HTTPS</div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">HTTPS</span>
+                <span class="ts-details-value" style="color:${d.ssl_verify === 'TLS/SSL' ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${d.ssl_verify === 'TLS/SSL' ? '✓ Secure' : '✗ Insecure'}</span>
+              </div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Protocol</span>
+                <span class="ts-details-value">${d.ssl_verify === 'TLS/SSL' ? 'TLS 1.2/1.3' : 'None'}</span>
+              </div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">HTTP Status</span>
+                <span class="ts-details-value">${d.http_code}</span>
               </div>
             </div>
 
@@ -1373,36 +1528,11 @@
                 <span class="ts-details-label">IP Reputation</span>
                 <span class="ts-details-value" style="color:hsl(var(--accent-green))">✓ Good Standing</span>
               </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Spam Databases</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">0 listings</span>
-              </div>
-            </div>
-
-            <!-- SPF, DKIM, and DMARC Validation -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">SPF Record</span>
-                <span class="ts-details-value" style="color:${spfColor}">${spfStatus}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">DKIM</span>
-                <span class="ts-details-value" style="color:${dkimColor}">${dkimStatus}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">DMARC Policy</span>
-                <span class="ts-details-value" style="color:${dmarcColor}">${dmarcDisplay}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Email Deliverability</span>
-                <span class="ts-details-value" style="color:${dns.dmarc && dns.spf ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${dns.dmarc && dns.spf ? '✓ Compliant' : '⚠ Review Needed'}</span>
-              </div>
             </div>
 
             <!-- Latency and Server Response Time -->
             <div class="ts-details-section">
-              <div class="ts-details-title">LATENCY and SERVER RESPONSE</div>
+              <div class="ts-details-title">LATENCY & RESPONSE</div>
               <div class="ts-details-row">
                 <span class="ts-details-label">Response Time</span>
                 <span class="ts-details-value">${d.total_time}</span>
@@ -1415,58 +1545,8 @@
                 <span class="ts-details-label">Connection Quality</span>
                 <span class="ts-details-value" style="color:${responseTime < 50 ? 'hsl(var(--accent-green))' : responseTime < 150 ? 'hsl(var(--accent-orange))' : 'hsl(var(--error))'}">${responseTime < 50 ? 'Excellent' : responseTime < 150 ? 'Good' : 'Poor'}</span>
               </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Load Capacity</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">Normal</span>
-              </div>
             </div>
 
-            <!-- TLS Connection -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">TLS CONNECTION</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Protocol</span>
-                <span class="ts-details-value">${d.ssl_verify === 'TLS/SSL' ? 'TLS 1.3' : 'None'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Cipher</span>
-                <span class="ts-details-value">${d.ssl_verify === 'TLS/SSL' ? 'AES-256-GCM' : 'N/A'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Certificate</span>
-                <span class="ts-details-value" style="color:${d.ssl_verify === 'TLS/SSL' ? 'hsl(var(--accent-green))' : 'hsl(var(--text-muted))'}">${d.ssl_verify === 'TLS/SSL' ? 'Valid' : 'N/A'}</span>
-              </div>
-            </div>
-            
-            <!-- Security Matters -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">SECURITY STATUS</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">HTTPS</span>
-                <span class="ts-details-value" style="color:${d.ssl_verify === 'TLS/SSL' ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${d.ssl_verify === 'TLS/SSL' ? '✓ Secure' : '✗ Insecure'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">HTTP Status</span>
-                <span class="ts-details-value">${d.http_code}</span>
-              </div>
-            </div>
-
-            <!-- Email Header Analysis -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">EMAIL HEADER ANALYSIS</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Routing Status</span>
-                <span class="ts-details-value" style="color:${dns.mx && dns.mx.length > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--text-muted))'}">${dns.mx && dns.mx.length > 0 ? '✓ Proper Routing' : 'N/A'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Delay Detection</span>
-                <span class="ts-details-value" style="color:${responseTime < 100 ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${responseTime < 100 ? 'No Delays' : 'Potential Delays'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Spam Score Risk</span>
-                <span class="ts-details-value" style="color:${dns.dmarc && dns.spf ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${dns.dmarc && dns.spf ? 'Low' : 'Medium'}</span>
-              </div>
-            </div>
             
             <!-- Tracert -d -->
             <div class="ts-details-section">
@@ -1481,148 +1561,20 @@
             </div>
           `;
         } catch {
-          // Fallback static data when API is unavailable (local file testing)
-          const d = { ssl_verify: 'TLS/SSL', total_time: '45 ms', http_code: 200 };
-          const hops = this.generateHops(hostKey, 45);
-
+          // Fallback static data when API is unavailable
           document.getElementById(`grid-${i}`).innerHTML = `
-            <!-- DNS and MX Record Accuracy -->
             <div class="ts-details-section">
-              <div class="ts-details-title">DNS and MX RECORD ACCURACY</div>
+              <div class="ts-details-title">📧 EMAIL AUTHENTICATION</div>
               <div class="ts-details-row">
-                <span class="ts-details-label">DNS Resolution</span>
-                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Public IP</span>
-                <span class="ts-details-value">N/A</span>
-              </div>
-              <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
-                <span class="ts-details-label" style="margin-bottom:0.25rem;">MX Records</span>
-                <div style="width:100%"><span style="color:hsl(var(--text-muted))">N/A</span></div>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">MX Configuration</span>
-                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
+                <span class="ts-details-label">Status</span>
+                <span class="ts-details-value" style="color:hsl(var(--text-muted))">API Unavailable</span>
               </div>
             </div>
-
-            <!-- Blacklist Checks -->
             <div class="ts-details-section">
-              <div class="ts-details-title">BLACKLIST CHECKS</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Domain Status</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">Clean</span>
+              <div class="ts-details-title">ℹ️ NOTICE</div>
+              <div style="font-size:0.75rem; color:hsl(var(--text-muted)); padding:0.5rem;">
+                Unable to fetch details. Run the local server for full functionality.
               </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">IP Reputation</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">✓ Good Standing</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Spam Databases</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">0 listings</span>
-              </div>
-            </div>
-
-            <!-- SPF, DKIM, and DMARC Validation -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">SPF Record</span>
-                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">DKIM</span>
-                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">DMARC Policy</span>
-                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Email Deliverability</span>
-                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
-              </div>
-            </div>
-
-            <!-- Latency and Server Response Time -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">LATENCY and SERVER RESPONSE</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Response Time</span>
-                <span class="ts-details-value">${d.total_time}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Server Health</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">✓ Healthy</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Connection Quality</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">Excellent</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Load Capacity</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">Normal</span>
-              </div>
-            </div>
-
-            <!-- TLS Connection -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">TLS CONNECTION</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Protocol</span>
-                <span class="ts-details-value">TLS 1.3</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Cipher</span>
-                <span class="ts-details-value">AES-256-GCM</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Certificate</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">Valid</span>
-              </div>
-            </div>
-            
-            <!-- Security Status -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">SECURITY STATUS</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">HTTPS</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">✓ Secure</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">HTTP Status</span>
-                <span class="ts-details-value">200</span>
-              </div>
-            </div>
-
-            <!-- Email Header Analysis -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">EMAIL HEADER ANALYSIS</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Routing Status</span>
-                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Delay Detection</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">No Delays</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Spam Score Risk</span>
-                <span class="ts-details-value" style="color:hsl(var(--text-muted))">N/A</span>
-              </div>
-            </div>
-            
-            <!-- Tracert -d -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">TRACEROUTE (-D)</div>
-              ${hops.map((hop, idx) => `
-                <div class="ts-tracert-hop">
-                  <span class="ts-hop-num">${idx + 1}</span>
-                  <span class="ts-hop-ip">${hop.ip}</span>
-                  <span class="ts-hop-time">${hop.time}ms</span>
-                </div>
-              `).join('')}
             </div>
           `;
         }
@@ -1685,36 +1637,37 @@
           const json = await response.json();
 
           if (json.error) {
-            this.showResult(host, null, null, json.error);
+            this.showResult(host, null, null, null, json.error);
           } else if (json.data) {
-            // Also fetch DNS records
+            // Fetch DNS records and email-auth in parallel
             try {
-              const dnsRes = await fetch(`/api/dns-records?host=${encodeURIComponent(host)}`);
+              const [dnsRes, emailAuthRes] = await Promise.all([
+                fetch(`/api/dns-records?host=${encodeURIComponent(host)}`),
+                fetch(`/api/email-auth?host=${encodeURIComponent(host)}`)
+              ]);
               const dnsJson = await dnsRes.json();
-              this.showResult(host, json.data, dnsJson.data || {});
+              const emailAuthJson = await emailAuthRes.json();
+              this.showResult(host, json.data, dnsJson.data || {}, emailAuthJson.data || {});
             } catch {
-              this.showResult(host, json.data, {});
+              this.showResult(host, json.data, {}, {});
             }
           }
         } catch (e) {
-          this.showResult(host, null, null, e.message);
+          this.showResult(host, null, null, null, e.message);
         }
 
         // Reset button
         this.btnEl.disabled = false;
-        this.btnEl.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="5" y1="12" x2="19" y2="12" />
-          <polyline points="12 5 19 12 12 19" />
-        </svg>`;
+        this.btnEl.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>`;
       },
 
-      showResult(host, data, dns = {}, error = null) {
+      showResult(host, data, dns = {}, emailAuth = {}, error = null) {
         this.resultEl.style.display = 'block';
 
         if (error || !data || data.latency === -1) {
           // Error state
           this.resultEl.innerHTML = `
-            <div class="ts-item" style="border: 1px solid hsl(var(--error) / 0.5);">
+      <div class="ts-item" style="border: 1px solid hsl(var(--error) / 0.5);">
               <div class="ts-item-info">
                 <svg class="ts-check-icon" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--error))" stroke-width="2">
                   <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
@@ -1723,7 +1676,7 @@
               </div>
               <div class="ts-ping-val poor">${error || data?.error || 'Unreachable'}</div>
             </div>
-          `;
+      `;
           return;
         }
 
@@ -1735,38 +1688,95 @@
         // Generate simulated traceroute hops
         const hops = this.generateHops(host, latency);
 
-        // Format MX records
-        const mxHtml = dns.mx && dns.mx.length > 0
-          ? dns.mx.map(mx => `<div style="font-size:0.75rem; color:hsl(var(--text-muted))">${mx.priority} ${mx.exchange}</div>`).join('')
-          : '<span style="color:hsl(var(--text-muted))">N/A</span>';
+        // Format MX records (prefer emailAuth data)
+        const mxList = emailAuth.mx && emailAuth.mx.length > 0 ? emailAuth.mx : (dns.mx || []);
+        const mxHtml = mxList.length > 0
+          ? mxList.map(mx => `<div style="font-size:0.75rem; color:hsl(var(--text-muted))">${mx.priority} ${mx.exchange}</div>`).join('')
+          : '<span style="color:hsl(var(--accent-orange))">❌ Not configured</span>';
 
-        // Format DMARC
-        let dmarcDisplay = 'Not configured';
-        let dmarcColor = 'hsl(var(--accent-orange))';
-        if (dns.dmarc) {
-          const policyMatch = dns.dmarc.match(/p=([^;]+)/);
-          const policy = policyMatch ? policyMatch[1] : 'unknown';
-          dmarcDisplay = policy.charAt(0).toUpperCase() + policy.slice(1);
-          dmarcColor = policy === 'reject' ? 'hsl(var(--accent-green))' : policy === 'quarantine' ? 'hsl(var(--accent-orange))' : 'hsl(var(--text-muted))';
-        }
-
-        // SPF record check
-        let spfStatus = 'Not configured';
-        let spfColor = 'hsl(var(--accent-orange))';
-        if (dns.spf) {
+        // SPF Record Display - FULL RECORD
+        let spfHtml = '<span style="color:hsl(var(--accent-orange))">❌ Not configured</span>';
+        let spfStatus = '❌ Missing';
+        let spfColor = 'hsl(var(--error))';
+        if (emailAuth.spf && emailAuth.spf.found) {
           spfStatus = '✓ Valid';
           spfColor = 'hsl(var(--accent-green))';
+          spfHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">${emailAuth.spf.record}</div>`;
+        } else if (dns.spf) {
+          spfStatus = '✓ Valid';
+          spfColor = 'hsl(var(--accent-green))';
+          spfHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">${dns.spf}</div>`;
         }
 
-        // DKIM simulation
-        let dkimStatus = dns.ip ? 'Check Required' : 'N/A';
-        let dkimColor = dns.ip ? 'hsl(var(--accent-orange))' : 'hsl(var(--text-muted))';
+        // DKIM Display - WITH SELECTOR
+        let dkimStatus = '❌ Not found';
+        let dkimColor = 'hsl(var(--error))';
+        let dkimHtml = '<span style="color:hsl(var(--accent-orange))">Not found (tried common selectors)</span>';
+        if (emailAuth.dkim && emailAuth.dkim.found) {
+          dkimStatus = `✓ Found (${emailAuth.dkim.selector})`;
+          dkimColor = 'hsl(var(--accent-green))';
+          dkimHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">Selector: ${emailAuth.dkim.selector}<br>Key: ${emailAuth.dkim.keyType || 'rsa'}<br>${emailAuth.dkim.record}</div>`;
+        }
+
+        // DMARC Display - FULL RECORD WITH POLICY
+        let dmarcStatus = '❌ Not configured';
+        let dmarcColor = 'hsl(var(--error))';
+        let dmarcHtml = '<span style="color:hsl(var(--accent-orange))">❌ Not configured</span>';
+        if (emailAuth.dmarc && emailAuth.dmarc.found) {
+          const policy = emailAuth.dmarc.policy || 'none';
+          if (policy === 'reject') {
+            dmarcStatus = '✓ Reject (strict)';
+            dmarcColor = 'hsl(var(--accent-green))';
+          } else if (policy === 'quarantine') {
+            dmarcStatus = '⚠ Quarantine';
+            dmarcColor = 'hsl(var(--accent-orange))';
+          } else {
+            dmarcStatus = '⚠ None (monitoring)';
+            dmarcColor = 'hsl(var(--accent-orange))';
+          }
+          dmarcHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">${emailAuth.dmarc.record}</div>`;
+        } else if (dns.dmarc) {
+          const policyMatch = dns.dmarc.match(/p=([^;]+)/);
+          const policy = policyMatch ? policyMatch[1] : 'none';
+          if (policy === 'reject') {
+            dmarcStatus = '✓ Reject (strict)';
+            dmarcColor = 'hsl(var(--accent-green))';
+          } else {
+            dmarcStatus = `⚠ ${policy}`;
+            dmarcColor = 'hsl(var(--accent-orange))';
+          }
+          dmarcHtml = `<div style="font-size:0.7rem; word-break:break-all; background:hsl(var(--bg)/0.6); padding:0.5rem; border-radius:4px; font-family:monospace; color:hsl(var(--accent-cyan));">${dns.dmarc}</div>`;
+        }
+
+        // SMTP/Mail TLS Info
+        const smtpInfo = emailAuth.smtp || {};
+        const hasMailServer = smtpInfo.hasMailServer || (mxList.length > 0);
+        const starttls = smtpInfo.starttls || 'unknown';
+
+        // Overall email auth score
+        const spfOk = emailAuth.spf?.found || dns.spf;
+        const dkimOk = emailAuth.dkim?.found;
+        const dmarcOk = emailAuth.dmarc?.found || dns.dmarc;
+        let authScore = 0;
+        if (spfOk) authScore++;
+        if (dkimOk) authScore++;
+        if (dmarcOk) authScore++;
+
+        let overallStatus = 'Critical Issues';
+        let overallColor = 'hsl(var(--error))';
+        if (authScore === 3) {
+          overallStatus = '✓ Fully Compliant';
+          overallColor = 'hsl(var(--accent-green))';
+        } else if (authScore >= 1) {
+          overallStatus = '⚠ Partial Configuration';
+          overallColor = 'hsl(var(--accent-orange))';
+        }
 
         // Server health based on latency
         const serverHealthy = latency < 200;
 
         this.resultEl.innerHTML = `
-          <div class="ts-item" id="custom-row" onclick="CustomPing.toggleDetails()" style="border: 1px solid hsl(var(${latencyColor}) / 0.3);">
+      <div class="ts-item" id="custom-row" onclick="CustomPing.toggleDetails()" style="border: 1px solid hsl(var(${latencyColor}) / 0.3);">
             <div class="ts-item-info">
               <svg class="ts-check-icon" viewBox="0 0 24 24" fill="none" stroke="hsl(var(${latencyColor}))" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><polyline points="16 9 12 15 8 11"/>
@@ -1780,147 +1790,148 @@
               </svg>
             </div>
           </div>
-          <div class="ts-details-panel" id="custom-details" style="display:none; padding:1rem; background:hsl(var(--bg)/0.4); margin-bottom:0.5rem; border-radius:8px; border:1px solid hsl(var(--border)/0.3);">
-            <!-- DNS and MX Record Accuracy -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">DNS and MX RECORD ACCURACY</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">DNS Resolution</span>
-                <span class="ts-details-value" style="color:${dns.ip ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${dns.ip ? '✓ Resolved' : '✗ Failed'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Public IP</span>
-                <span class="ts-details-value">${dns.ip || 'N/A'}</span>
-              </div>
-              <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
-                <span class="ts-details-label" style="margin-bottom:0.25rem;">MX Records</span>
-                <div style="width:100%">${mxHtml}</div>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">MX Configuration</span>
-                <span class="ts-details-value" style="color:${dns.mx && dns.mx.length > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${dns.mx && dns.mx.length > 0 ? '✓ Configured' : '⚠ Not Found'}</span>
-              </div>
-            </div>
+      <div class="ts-details-panel" id="custom-details" style="display:none; padding:1rem; background:hsl(var(--bg)/0.4); margin-bottom:0.5rem; border-radius:8px; border:1px solid hsl(var(--border)/0.3);">
+        <!-- EMAIL AUTHENTICATION RECORDS (FULL) -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">EMAIL AUTHENTICATION RECORDS</div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Overall Status</span>
+            <span class="ts-details-value" style="color:${overallColor}">${overallStatus} (${authScore}/3)</span>
+          </div>
+        </div>
 
-            <!-- Blacklist Checks -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">BLACKLIST CHECKS</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Domain Status</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">Clean</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">IP Reputation</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">✓ Good Standing</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Spam Databases</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">0 listings</span>
-              </div>
-            </div>
+        <!-- SPF RECORD (FULL) -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">SPF RECORD</div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Status</span>
+            <span class="ts-details-value" style="color:${spfColor}">${spfStatus}</span>
+          </div>
+          <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+            <span class="ts-details-label" style="margin-bottom:0.25rem;">Full Record Value</span>
+            ${spfHtml}
+          </div>
+        </div>
 
-            <!-- SPF, DKIM, and DMARC Validation -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">EMAIL AUTHENTICATION (SPF/DKIM/DMARC)</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">SPF Record</span>
-                <span class="ts-details-value" style="color:${spfColor}">${spfStatus}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">DKIM</span>
-                <span class="ts-details-value" style="color:${dkimColor}">${dkimStatus}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">DMARC Policy</span>
-                <span class="ts-details-value" style="color:${dmarcColor}">${dmarcDisplay}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Email Deliverability</span>
-                <span class="ts-details-value" style="color:${dns.dmarc && dns.spf ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${dns.dmarc && dns.spf ? '✓ Compliant' : '⚠ Review Needed'}</span>
-              </div>
-            </div>
+        <!-- DKIM RECORD -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">DKIM RECORD</div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Status</span>
+            <span class="ts-details-value" style="color:${dkimColor}">${dkimStatus}</span>
+          </div>
+          <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+            <span class="ts-details-label" style="margin-bottom:0.25rem;">Selector & Public Key</span>
+            ${dkimHtml}
+          </div>
+        </div>
 
-            <!-- Latency and Server Response Time -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">LATENCY and SERVER RESPONSE</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Response Time</span>
-                <span class="ts-details-value">${latency} ms</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Server Health</span>
-                <span class="ts-details-value" style="color:${serverHealthy ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${serverHealthy ? '✓ Healthy' : '⚠ Slow Response'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Connection Quality</span>
-                <span class="ts-details-value" style="color:${latency < 50 ? 'hsl(var(--accent-green))' : latency < 150 ? 'hsl(var(--accent-orange))' : 'hsl(var(--error))'}">${latency < 50 ? 'Excellent' : latency < 150 ? 'Good' : 'Poor'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Load Capacity</span>
-                <span class="ts-details-value" style="color:hsl(var(--accent-green))">Normal</span>
-              </div>
-            </div>
+        <!-- DMARC RECORD -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">DMARC RECORD</div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Policy</span>
+            <span class="ts-details-value" style="color:${dmarcColor}">${dmarcStatus}</span>
+          </div>
+          ${emailAuth.dmarc?.subdomainPolicy ? `
+          <div class="ts-details-row">
+            <span class="ts-details-label">Subdomain Policy</span>
+            <span class="ts-details-value">${emailAuth.dmarc.subdomainPolicy}</span>
+          </div>` : ''}
+          ${emailAuth.dmarc?.pct ? `
+          <div class="ts-details-row">
+            <span class="ts-details-label">Percentage</span>
+            <span class="ts-details-value">${emailAuth.dmarc.pct}%</span>
+          </div>` : ''}
+          ${emailAuth.dmarc?.rua ? `
+          <div class="ts-details-row">
+            <span class="ts-details-label">Aggregate Reports</span>
+            <span class="ts-details-value" style="font-size:0.7rem;">${emailAuth.dmarc.rua}</span>
+          </div>` : ''}
+          <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+            <span class="ts-details-label" style="margin-bottom:0.25rem;">Full Record Content</span>
+            ${dmarcHtml}
+          </div>
+        </div>
 
-            <!-- TLS Connection -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">TLS CONNECTION</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Protocol</span>
-                <span class="ts-details-value">${isSecure ? 'TLS 1.3' : 'Unknown'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Cipher</span>
-                <span class="ts-details-value">${isSecure ? 'AES-256-GCM' : 'N/A'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Certificate</span>
-                <span class="ts-details-value" style="color:${isSecure ? 'hsl(var(--accent-green))' : 'hsl(var(--text-muted))'}">${isSecure ? 'Valid' : 'N/A'}</span>
-              </div>
-            </div>
-            
-            <!-- Security Status -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">SECURITY STATUS</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">HTTPS</span>
-                <span class="ts-details-value" style="color:${isSecure ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${isSecure ? '✓ Secure' : '? Unknown'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">HTTP Status</span>
-                <span class="ts-details-value">${data.success ? '200 OK' : 'Error'}</span>
-              </div>
-            </div>
+        <!-- SMTP/MAIL SERVER INFO -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">SMTP / MAIL SERVER</div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Mail Server</span>
+            <span class="ts-details-value" style="color:${hasMailServer ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${hasMailServer ? '✓ Configured' : '❌ No MX records'}</span>
+          </div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">STARTTLS Support</span>
+            <span class="ts-details-value">${starttls}</span>
+          </div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Expected Ports</span>
+            <span class="ts-details-value">25 (SMTP), 587 (Submission), 465 (SMTPS)</span>
+          </div>
+          <div class="ts-details-row" style="flex-direction:column; align-items:flex-start;">
+            <span class="ts-details-label" style="margin-bottom:0.25rem;">MX Records</span>
+            <div style="width:100%">${mxHtml}</div>
+          </div>
+        </div>
 
-            <!-- Email Header Analysis -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">EMAIL HEADER ANALYSIS</div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Routing Status</span>
-                <span class="ts-details-value" style="color:${dns.mx && dns.mx.length > 0 ? 'hsl(var(--accent-green))' : 'hsl(var(--text-muted))'}">${dns.mx && dns.mx.length > 0 ? '✓ Proper Routing' : 'N/A'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Delay Detection</span>
-                <span class="ts-details-value" style="color:${latency < 100 ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${latency < 100 ? 'No Delays' : 'Potential Delays'}</span>
-              </div>
-              <div class="ts-details-row">
-                <span class="ts-details-label">Spam Score Risk</span>
-                <span class="ts-details-value" style="color:${dns.dmarc && dns.spf ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${dns.dmarc && dns.spf ? 'Low' : 'Medium'}</span>
-              </div>
-            </div>
-            
-            <!-- Traceroute -->
-            <div class="ts-details-section">
-              <div class="ts-details-title">TRACEROUTE (-D)</div>
-              ${hops.map((hop, idx) => `
+        <!-- DNS and IP INFO -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">DNS RESOLUTION</div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">DNS Resolution</span>
+            <span class="ts-details-value" style="color:${dns.ip ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${dns.ip ? '✓ Resolved' : '✗ Failed'}</span>
+          </div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Primary IP</span>
+            <span class="ts-details-value">${dns.ip || 'N/A'}</span>
+          </div>
+        </div>
+
+        <!-- TLS Connection (WEB) -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">WEB TLS / HTTPS</div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">HTTPS</span>
+            <span class="ts-details-value" style="color:${isSecure ? 'hsl(var(--accent-green))' : 'hsl(var(--error))'}">${isSecure ? '✓ Secure' : '? Unknown'}</span>
+          </div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">HTTP Status</span>
+            <span class="ts-details-value">${data.success ? '200 OK' : 'Error'}</span>
+          </div>
+        </div>
+
+        <!-- Latency and Response -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">LATENCY & RESPONSE</div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Response Time</span>
+            <span class="ts-details-value">${latency} ms</span>
+          </div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Server Health</span>
+            <span class="ts-details-value" style="color:${serverHealthy ? 'hsl(var(--accent-green))' : 'hsl(var(--accent-orange))'}">${serverHealthy ? '✓ Healthy' : '⚠ Slow Response'}</span>
+          </div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Connection Quality</span>
+            <span class="ts-details-value" style="color:${latency < 50 ? 'hsl(var(--accent-green))' : latency < 150 ? 'hsl(var(--accent-orange))' : 'hsl(var(--error))'}">${latency < 50 ? 'Excellent' : latency < 150 ? 'Good' : 'Poor'}</span>
+          </div>
+        </div>
+
+        
+        <!-- Traceroute -->
+        <div class="ts-details-section">
+          <div class="ts-details-title">TRACEROUTE (-D)</div>
+          ${hops.map((hop, idx) => `
                 <div class="ts-tracert-hop">
                   <span class="ts-hop-num">${idx + 1}</span>
                   <span class="ts-hop-ip">${hop.ip}</span>
                   <span class="ts-hop-time">${hop.time}ms</span>
                 </div>
               `).join('')}
-            </div>
-          </div>
-        `;
+        </div>
+      </div>
+    `;
       },
 
       toggleDetails() {
@@ -1938,7 +1949,7 @@
 
       generateHops(host, baseLatency) {
         // Generate simulated traceroute hops
-        const randomIP = () => `${Math.floor(Math.random() * 200) + 10}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+        const randomIP = () => `${Math.floor(Math.random() * 200) + 10}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)} `;
         const hops = [
           { ip: '192.168.1.1', time: Math.round(baseLatency * 0.1 + Math.random() * 3) },
           { ip: '10.0.0.1', time: Math.round(baseLatency * 0.2 + Math.random() * 5) },
