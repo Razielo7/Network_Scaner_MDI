@@ -259,7 +259,7 @@ app.get('/api/details', async (req, res) => {
     }
 });
 
-// GET /api/dns-records - Get DNS records (A, MX, DMARC) for a domain
+// GET /api/dns-records - Get DNS records (A, MX, SPF, DMARC) for a domain
 app.get('/api/dns-records', async (req, res) => {
     const host = req.query.host;
     const dns = require('dns').promises;
@@ -279,6 +279,7 @@ app.get('/api/dns-records', async (req, res) => {
             data: {
                 ip: domain,
                 mx: [],
+                spf: null,
                 dmarc: null,
                 isIP: true
             }
@@ -288,6 +289,7 @@ app.get('/api/dns-records', async (req, res) => {
     const result = {
         ip: null,
         mx: [],
+        spf: null,
         dmarc: null
     };
 
@@ -311,6 +313,13 @@ app.get('/api/dns-records', async (req, res) => {
                 priority: r.priority,
                 exchange: r.exchange
             }));
+        } catch { }
+
+        // Get SPF record (TXT record containing "v=spf1")
+        try {
+            const txtRecords = await dns.resolveTxt(domain);
+            const spfRecord = txtRecords.flat().find(r => r.startsWith('v=spf1'));
+            result.spf = spfRecord || null;
         } catch { }
 
         // Get DMARC record (TXT record at _dmarc subdomain)

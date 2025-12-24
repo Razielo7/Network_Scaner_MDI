@@ -1,4 +1,4 @@
-// DNS Records API - Get DNS records (A, MX, DMARC) for a domain
+// DNS Records API - Get DNS records (A, MX, SPF, DMARC) for a domain
 // Vercel Serverless Function
 
 export default async function handler(req, res) {
@@ -24,6 +24,7 @@ export default async function handler(req, res) {
             data: {
                 ip: domain,
                 mx: [],
+                spf: null,
                 dmarc: null,
                 isIP: true
             }
@@ -33,6 +34,7 @@ export default async function handler(req, res) {
     const result = {
         ip: null,
         mx: [],
+        spf: null,
         dmarc: null
     };
 
@@ -76,6 +78,23 @@ export default async function handler(req, res) {
             }
         } catch (e) {
             console.error('MX record lookup failed:', e);
+        }
+
+        // Get SPF record (TXT record containing "v=spf1")
+        try {
+            const spfRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${domain}&type=TXT`, {
+                headers: { 'Accept': 'application/dns-json' }
+            });
+            const spfData = await spfRes.json();
+            if (spfData.Answer && spfData.Answer.length > 0) {
+                const spfRecord = spfData.Answer.find(r => r.type === 16 && r.data.includes('v=spf1'));
+                if (spfRecord) {
+                    // Remove surrounding quotes if present
+                    result.spf = spfRecord.data.replace(/^"|"$/g, '');
+                }
+            }
+        } catch (e) {
+            console.error('SPF record lookup failed:', e);
         }
 
         // Get DMARC record (TXT record at _dmarc subdomain)
