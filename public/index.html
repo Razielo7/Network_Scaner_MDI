@@ -1082,27 +1082,27 @@
   <!-- Speed Test Bar -->
   <div class="di-bar" style="margin-top: -1rem; margin-bottom: 2rem; padding: 1.5rem 1.5rem;">
     <div class="di-bar-item"
-      style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 1.5rem; margin-right: 1rem; cursor:pointer;"
-      onclick="SpeedTest.runFullTest()">
+      style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 1.5rem; margin-right: 1rem; display: flex; align-items: center; gap: 0.75rem;">
       <div id="speedTestLabel"
-        style="font-size: 0.9rem; font-weight: 800; color: hsl(var(--accent-cyan)); letter-spacing: 1px; transition: color 0.3s;">
+        style="font-size: 0.9rem; font-weight: 800; color: hsl(var(--accent-green)); letter-spacing: 1px; transition: color 0.3s;">
         INTERNET
         SPEED</div>
+      <button class="st-start-btn-small" id="speedTestGoBtn" onclick="SpeedTest.runFullTest()">GO</button>
     </div>
 
-    <div class="di-bar-item">
-      <span class="di-bar-label">Download</span>
-      <div class="di-bar-value" style="color:hsl(var(--accent-green)); min-width:60px;">
-        <span id="dlSpeed">--</span> <span style="font-size:0.7em; opacity:0.7;">Mbps</span>
+    <div style="display: flex; flex: 1; justify-content: space-between; padding: 0 2rem;">
+      <div class="di-bar-item">
+        <span class="di-bar-label" style="font-size: 0.8rem;">Download</span>
+        <div class="di-bar-value" style="color:hsl(var(--accent-green)); min-width:80px; font-size: 1.1rem;">
+          <span id="dlSpeed">--</span> <span style="font-size:0.75em; opacity:0.7;">Mbps</span>
+        </div>
       </div>
-    </div>
 
-
-
-    <div class="di-bar-item">
-      <span class="di-bar-label">Upload</span>
-      <div class="di-bar-value" style="color:hsl(var(--accent-purple)); min-width:60px;">
-        <span id="ulSpeed">--</span> <span style="font-size:0.7em; opacity:0.7;">Mbps</span>
+      <div class="di-bar-item">
+        <span class="di-bar-label" style="font-size: 0.8rem;">Upload</span>
+        <div class="di-bar-value" style="color:hsl(var(--accent-purple)); min-width:80px; font-size: 1.1rem;">
+          <span id="ulSpeed">--</span> <span style="font-size:0.75em; opacity:0.7;">Mbps</span>
+        </div>
       </div>
     </div>
 
