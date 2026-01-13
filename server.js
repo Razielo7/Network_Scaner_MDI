@@ -6,7 +6,7 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // Middleware
 app.use(cors());
@@ -525,7 +525,165 @@ app.post('/api/upload-proxy', async (req, res) => {
     }
 });
 
+// GET/POST /api/speedtest - Comprehensive speed test with client info and results
+app.all('/api/speedtest', async (req, res) => {
+    const action = req.query.action || req.body?.action;
+
+    try {
+        switch (action) {
+            case 'ping':
+                return await handlePingTest(req, res);
+            case 'client':
+                return await handleClientInfo(req, res);
+            case 'share':
+                return await handleShareImage(req, res);
+            default:
+                return await handleFullTest(req, res);
+        }
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Ping test handler
+async function handlePingTest(req, res) {
+    const samples = parseInt(req.query.samples) || 10;
+    const latencies = [];
+    let failed = 0;
+
+    for (let i = 0; i < samples; i++) {
+        try {
+            const start = performance.now();
+            await fetch('https://speed.cloudflare.com/__down?bytes=0', { method: 'HEAD' });
+            latencies.push(performance.now() - start);
+        } catch { failed++; }
+        await new Promise(r => setTimeout(r, 50));
+    }
+
+    const avg = latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : null;
+    const min = latencies.length > 0 ? Math.min(...latencies) : null;
+    const max = latencies.length > 0 ? Math.max(...latencies) : null;
+
+    let jitter = null;
+    if (latencies.length > 1) {
+        const variance = latencies.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / latencies.length;
+        jitter = Math.sqrt(variance);
+    }
+
+    return res.json({
+        success: true,
+        data: {
+            ping: avg ? avg.toFixed(2) : null,
+            min: min ? min.toFixed(2) : null,
+            max: max ? max.toFixed(2) : null,
+            jitter: jitter ? jitter.toFixed(2) : null,
+            packetLoss: ((failed / samples) * 100).toFixed(1),
+            samples: latencies.length
+        }
+    });
+}
+
+// Client info handler
+async function handleClientInfo(req, res) {
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+        req.headers['x-real-ip'] || req.socket?.remoteAddress || 'Unknown';
+
+    try {
+        const geoResponse = await fetch(
+            `http://ip-api.com/json/${clientIp}?fields=status,country,countryCode,regionName,city,isp,org,as,query`
+        );
+        const geoData = await geoResponse.json();
+
+        if (geoData.status === 'success') {
+            return res.json({
+                success: true,
+                data: {
+                    ip: geoData.query || clientIp,
+                    isp: geoData.isp || 'Unknown',
+                    org: geoData.org || '',
+                    as: geoData.as || '',
+                    country: geoData.country || 'Unknown',
+                    countryCode: geoData.countryCode || '',
+                    region: geoData.regionName || '',
+                    city: geoData.city || ''
+                }
+            });
+        }
+    } catch { }
+
+    return res.json({ success: true, data: { ip: clientIp, isp: 'Unknown' } });
+}
+
+// Share image handler
+async function handleShareImage(req, res) {
+    const { download, upload, ping, isp, server } = req.query;
+    const resultData = {
+        download: parseFloat(download) || 0,
+        upload: parseFloat(upload) || 0,
+        ping: parseFloat(ping) || 0,
+        isp: isp || 'Unknown',
+        server: server || 'Cloudflare',
+        timestamp: new Date().toISOString()
+    };
+
+    const svgImage = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="600" height="300" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0f172a"/><stop offset="100%" style="stop-color:#1e3a5f"/></linearGradient></defs>
+  <rect width="600" height="300" fill="url(#bg)"/>
+  <text x="300" y="40" text-anchor="middle" fill="#06b6d4" font-family="Arial" font-size="24" font-weight="bold">MDI Network Speed Test</text>
+  <rect x="30" y="70" width="160" height="80" rx="10" fill="#1e293b"/>
+  <text x="110" y="100" text-anchor="middle" fill="#94a3b8" font-family="Arial" font-size="12">DOWNLOAD</text>
+  <text x="110" y="135" text-anchor="middle" fill="#06b6d4" font-family="Arial" font-size="28" font-weight="bold">${resultData.download.toFixed(2)}</text>
+  <text x="110" y="150" text-anchor="middle" fill="#64748b" font-family="Arial" font-size="10">Mbps</text>
+  <rect x="220" y="70" width="160" height="80" rx="10" fill="#1e293b"/>
+  <text x="300" y="100" text-anchor="middle" fill="#94a3b8" font-family="Arial" font-size="12">UPLOAD</text>
+  <text x="300" y="135" text-anchor="middle" fill="#a855f7" font-family="Arial" font-size="28" font-weight="bold">${resultData.upload.toFixed(2)}</text>
+  <text x="300" y="150" text-anchor="middle" fill="#64748b" font-family="Arial" font-size="10">Mbps</text>
+  <rect x="410" y="70" width="160" height="80" rx="10" fill="#1e293b"/>
+  <text x="490" y="100" text-anchor="middle" fill="#94a3b8" font-family="Arial" font-size="12">PING</text>
+  <text x="490" y="135" text-anchor="middle" fill="#22c55e" font-family="Arial" font-size="28" font-weight="bold">${resultData.ping.toFixed(2)}</text>
+  <text x="490" y="150" text-anchor="middle" fill="#64748b" font-family="Arial" font-size="10">ms</text>
+  <text x="30" y="195" fill="#64748b" font-family="Arial" font-size="12">ISP: <tspan fill="#94a3b8">${resultData.isp}</tspan></text>
+  <text x="30" y="215" fill="#64748b" font-family="Arial" font-size="12">Server: <tspan fill="#94a3b8">${resultData.server}</tspan></text>
+  <text x="30" y="235" fill="#64748b" font-family="Arial" font-size="12">Date: <tspan fill="#94a3b8">${new Date(resultData.timestamp).toLocaleString()}</tspan></text>
+  <text x="300" y="280" text-anchor="middle" fill="#475569" font-family="Arial" font-size="10">MDI Network Diagnostics</text>
+</svg>`;
+
+    const base64 = Buffer.from(svgImage).toString('base64');
+    return res.json({
+        success: true,
+        data: { svg: svgImage, dataUrl: `data:image/svg+xml;base64,${base64}`, results: resultData }
+    });
+}
+
+// Full test initialization handler
+async function handleFullTest(req, res) {
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+        req.headers['x-real-ip'] || 'Unknown';
+
+    let clientInfo = { ip: clientIp, isp: 'Unknown' };
+    try {
+        const geoResponse = await fetch(`http://ip-api.com/json/${clientIp}?fields=status,country,city,isp,query`);
+        const geoData = await geoResponse.json();
+        if (geoData.status === 'success') {
+            clientInfo = { ip: geoData.query || clientIp, isp: geoData.isp || 'Unknown', country: geoData.country || '', city: geoData.city || '' };
+        }
+    } catch { }
+
+    return res.json({
+        success: true,
+        data: {
+            timestamp: new Date().toISOString(),
+            status: 'ready',
+            client: clientInfo,
+            server: { name: 'Cloudflare', location: 'Global CDN' },
+            message: 'Run speed test from client-side for accurate results'
+        }
+    });
+}
+
 // Fallback: serve index.html for any unmatched routes
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

@@ -628,6 +628,12 @@
     .st-start-btn-small {
       width: 48px;
       height: 48px;
+      min-width: 48px;
+      min-height: 48px;
+      max-width: 48px;
+      max-height: 48px;
+      aspect-ratio: 1 / 1;
+      padding: 0;
       border-radius: 50%;
       border: 1px solid hsl(var(--accent-cyan));
       background: rgba(15, 23, 42, 0.6);
@@ -641,7 +647,9 @@
       justify-content: center;
       transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
       box-shadow: 0 0 15px hsl(var(--accent-cyan) / 0.2);
+      flex-shrink: 0;
     }
+
 
     .st-start-btn-small:hover {
       background: hsl(var(--accent-cyan));
@@ -1068,7 +1076,7 @@
   <!-- Speed Test Bar -->
   <div class="di-bar" style="margin-top: -1rem; margin-bottom: 2rem; padding: 1.5rem 1.5rem;">
     <div class="di-bar-item"
-      style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 1.5rem; margin-right: 1rem; display: flex; align-items: center; gap: 0.75rem;">
+      style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 3rem; margin-right: 2rem; display: flex; align-items: center; gap: 1.25rem;">
       <div id="speedTestLabel"
         style="font-size: 0.9rem; font-weight: 800; color: hsl(var(--accent-green)); letter-spacing: 1px; transition: color 0.3s;">
         INTERNET
@@ -1076,25 +1084,34 @@
       <button class="st-start-btn-small" id="speedTestGoBtn" onclick="SpeedTest.runFullTest()">GO</button>
     </div>
 
-    <div style="display: flex; flex: 1; justify-content: space-between; padding: 0 2rem;">
-      <div class="di-bar-item">
+
+    <div style="display: flex; flex: 1; justify-content: space-between; padding: 0 1rem;">
+      <div class="di-bar-item" style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 1.5rem;">
         <span class="di-bar-label" style="font-size: 0.8rem;">Download</span>
         <div class="di-bar-value" style="color:hsl(var(--accent-green)); min-width:80px; font-size: 1.1rem;">
           <span id="dlSpeed">--</span> <span style="font-size:0.75em; opacity:0.7;">Mbps</span>
         </div>
       </div>
 
-      <div class="di-bar-item">
+      <div class="di-bar-item" style="border-right: 1px solid hsl(var(--border) / 0.5); padding-right: 1.5rem;">
         <span class="di-bar-label" style="font-size: 0.8rem;">Upload</span>
         <div class="di-bar-value" style="color:hsl(var(--accent-purple)); min-width:80px; font-size: 1.1rem;">
           <span id="ulSpeed">--</span> <span style="font-size:0.75em; opacity:0.7;">Mbps</span>
         </div>
       </div>
+
+      <div class="di-bar-item">
+        <span class="di-bar-label" style="font-size: 0.8rem;">Ping</span>
+        <div class="di-bar-value" style="color:hsl(var(--accent-cyan)); min-width:60px; font-size: 1.1rem;">
+          <span id="latency">--</span>
+        </div>
+      </div>
     </div>
+
 
     <!-- Hidden Elements -->
     <div style="display:none;">
-      <span id="latency">--</span>
+      <span id="speedTestISP"></span>
       <canvas id="gaugeCanvas" width="300" height="300"></canvas>
       <div id="gaugeVal">0.0</div>
       <div id="jitter"></div>
@@ -1498,6 +1515,10 @@
                 <span class="ts-details-label">Primary IP</span>
                 <span class="ts-details-value">${dns.ip || 'N/A'}</span>
               </div>
+              <div class="ts-details-row">
+                <span class="ts-details-label">Secondary IP</span>
+                <span class="ts-details-value">${dns.allIPs && dns.allIPs.length > 1 ? dns.allIPs[1] : 'N/A'}</span>
+              </div>
             </div>
 
             <!-- TLS Connection (WEB) -->
@@ -1886,6 +1907,10 @@
             <span class="ts-details-label">Primary IP</span>
             <span class="ts-details-value">${dns.ip || 'N/A'}</span>
           </div>
+          <div class="ts-details-row">
+            <span class="ts-details-label">Secondary IP</span>
+            <span class="ts-details-value">${dns.allIPs && dns.allIPs.length > 1 ? dns.allIPs[1] : 'N/A'}</span>
+          </div>
         </div>
 
         <!-- TLS Connection (WEB) -->
@@ -1972,10 +1997,35 @@
         minTestDuration: 3000
       },
 
-      state: { latencies: [], minLatency: Infinity, maxLatency: 0, currentJitter: 0, packetLoss: 0, downloadHistory: [], uploadHistory: [], streamProgress: [], isUploading: false, isRunning: false },
+      state: {
+        latencies: [], minLatency: Infinity, maxLatency: 0, currentJitter: 0, packetLoss: 0,
+        downloadHistory: [], uploadHistory: [], streamProgress: [], isUploading: false, isRunning: false,
+        clientInfo: null, finalDownload: 0, finalUpload: 0, finalPing: 0
+      },
 
       resetState() {
-        this.state = { latencies: [], minLatency: Infinity, maxLatency: 0, currentJitter: 0, packetLoss: 0, downloadHistory: [], uploadHistory: [], streamProgress: new Array(this.config.concurrentStreams).fill(0), isUploading: false, isRunning: false };
+        this.state = {
+          latencies: [], minLatency: Infinity, maxLatency: 0, currentJitter: 0, packetLoss: 0,
+          downloadHistory: [], uploadHistory: [], streamProgress: new Array(this.config.concurrentStreams).fill(0),
+          isUploading: false, isRunning: false, clientInfo: this.state.clientInfo,
+          finalDownload: 0, finalUpload: 0, finalPing: 0
+        };
+      },
+
+      async loadClientInfo() {
+        try {
+          const response = await fetch('/api/speedtest?action=client');
+          const json = await response.json();
+          if (json.success && json.data) {
+            this.state.clientInfo = json.data;
+            // Update ISP display if available
+            const ispEl = document.getElementById('speedTestISP');
+            if (ispEl && json.data.isp) {
+              ispEl.textContent = json.data.isp;
+              ispEl.style.display = 'block';
+            }
+          }
+        } catch (e) { console.error('Failed to load client info:', e); }
       },
 
       async measureLatency(samples = 10) {
@@ -2003,12 +2053,13 @@
           this.state.currentJitter = Math.sqrt(variance);
         }
         this.state.packetLoss = ((samples - latencies.length) / samples) * 100;
+        this.state.finalPing = latencies.length > 0 ? Math.min(...latencies) : 0;
         return latencies.length > 0 ? Math.min(...latencies) : null;
       },
 
       async testDownload() {
         const dlEl = document.getElementById('dlSpeed');
-        if (dlEl) dlEl.textContent = '0.0';
+        if (dlEl) dlEl.textContent = '0.00';
         this.state.streamProgress = new Array(this.config.concurrentStreams).fill(0);
         const startTime = performance.now();
         const streams = [];
@@ -2021,7 +2072,7 @@
             const elapsed = (now - startTime) / 1000;
             if (elapsed > 0) {
               const currentMbps = ((totalLoaded * 8) / 1000000) / elapsed;
-              if (dlEl) dlEl.textContent = currentMbps.toFixed(1);
+              if (dlEl) dlEl.textContent = currentMbps.toFixed(2);
               this.state.downloadHistory.push({ time: now - startTime, speed: currentMbps });
             }
           }, 60);
@@ -2031,7 +2082,8 @@
             const totalTime = (performance.now() - startTime) / 1000;
             const finalLoaded = this.state.streamProgress.reduce((a, b) => a + b, 0);
             const mbps = ((finalLoaded * 8) / 1000000) / totalTime;
-            if (dlEl) dlEl.textContent = mbps.toFixed(1);
+            this.state.finalDownload = mbps;
+            if (dlEl) dlEl.textContent = mbps.toFixed(2);
             resolve(mbps);
           }).catch(e => { clearInterval(interval); if (dlEl) dlEl.textContent = 'Err'; reject(e); });
         });
@@ -2054,7 +2106,7 @@
 
       async testUpload() {
         const ulEl = document.getElementById('ulSpeed');
-        if (ulEl) ulEl.textContent = '0.0';
+        if (ulEl) ulEl.textContent = '0.00';
         this.state.streamProgress = new Array(this.config.concurrentStreams).fill(0);
         this.state.isUploading = true;
         const startTime = performance.now();
@@ -2075,7 +2127,7 @@
             const elapsed = (now - startTime) / 1000;
             if (elapsed > 0.2) {
               const currentMbps = ((totalLoaded * 8) / 1000000) / elapsed;
-              if (ulEl) ulEl.textContent = currentMbps.toFixed(1);
+              if (ulEl) ulEl.textContent = currentMbps.toFixed(2);
               this.state.uploadHistory.push({ time: now - startTime, speed: currentMbps });
             }
             if (elapsed > (this.config.minTestDuration / 1000) && totalLoaded > 5 * 1024 * 1024) {
@@ -2089,7 +2141,8 @@
             const totalTime = (endTime - startTime) / 1000;
             const finalLoaded = this.state.streamProgress.reduce((a, b) => a + b, 0);
             const mbps = ((finalLoaded * 8) / 1000000) / totalTime;
-            if (ulEl) ulEl.textContent = mbps.toFixed(1);
+            this.state.finalUpload = mbps;
+            if (ulEl) ulEl.textContent = mbps.toFixed(2);
             resolve(mbps);
           }).catch(e => { clearInterval(interval); this.state.isUploading = false; if (ulEl) ulEl.textContent = 'Err'; reject(e); });
         });
@@ -2117,19 +2170,53 @@
         });
       },
 
+      async saveResult() {
+        try {
+          const isp = this.state.clientInfo?.isp || 'Unknown';
+          const params = new URLSearchParams({
+            download: this.state.finalDownload.toFixed(2),
+            upload: this.state.finalUpload.toFixed(2),
+            ping: this.state.finalPing.toFixed(2),
+            isp: isp,
+            server: 'Cloudflare'
+          });
+
+          const response = await fetch(`/api/speedtest?action=share&${params}`);
+          const json = await response.json();
+
+          if (json.success && json.data) {
+            // Create download link for SVG
+            const blob = new Blob([json.data.svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `speedtest-result-${new Date().toISOString().slice(0, 10)}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+        } catch (e) { console.error('Failed to save result:', e); }
+      },
+
       async runFullTest() {
         if (this.state.isRunning) return; // Prevent double-click
 
         const label = document.getElementById('speedTestLabel');
+        const saveBtn = document.getElementById('speedTestSaveBtn');
         if (label) {
           label.style.color = 'hsl(var(--accent-green))';
           label.textContent = 'TESTING...';
         }
+        if (saveBtn) saveBtn.style.display = 'none';
 
         this.state.isRunning = true;
         this.resetState();
 
         try {
+          // Load client info first
+          await this.loadClientInfo();
+
           await this.measureLatency();
           await this.testDownload();
 
@@ -2138,6 +2225,9 @@
             label.textContent = 'UPLOADING...';
           }
           await this.testUpload();
+
+          // Show save button after test completes
+          if (saveBtn) saveBtn.style.display = 'block';
         } catch (e) { console.error(e); }
         finally {
           this.state.isRunning = false;
@@ -2148,6 +2238,7 @@
         }
       }
     };
+
 
     // ========= INIT =========
     async function init() {

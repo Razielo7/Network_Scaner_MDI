@@ -33,6 +33,7 @@ export default async function handler(req, res) {
 
     const result = {
         ip: null,
+        allIPs: [],
         mx: [],
         spf: null,
         dmarc: null
@@ -47,9 +48,11 @@ export default async function handler(req, res) {
             });
             const dohData = await dohRes.json();
             if (dohData.Answer && dohData.Answer.length > 0) {
-                const aRecord = dohData.Answer.find(r => r.type === 1);
-                if (aRecord) {
-                    result.ip = aRecord.data;
+                // Get all A records (type 1)
+                const aRecords = dohData.Answer.filter(r => r.type === 1);
+                if (aRecords.length > 0) {
+                    result.ip = aRecords[0].data;
+                    result.allIPs = aRecords.map(r => r.data);
                 }
             }
         } catch (e) {
