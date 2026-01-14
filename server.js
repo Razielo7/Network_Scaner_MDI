@@ -369,6 +369,135 @@ app.get('/api/dns-records', async (req, res) => {
     }
 });
 
+// GET /api/traceroute - Perform real traceroute to target host
+app.get('/api/traceroute', async (req, res) => {
+    const host = req.query.host;
+    const { exec } = require('child_process');
+    const os = require('os');
+
+    if (!host) {
+        return res.status(400).json({ error: 'Host parameter required' });
+    }
+
+    // Validate hostname/IP format
+    const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+
+    if (!hostnameRegex.test(host) && !ipRegex.test(host)) {
+        return res.status(400).json({ error: 'Invalid hostname format' });
+    }
+
+    // Determine command based on OS
+    const isWindows = os.platform() === 'win32';
+    const command = isWindows
+        ? `tracert -d -h 15 -w 1000 ${host}`
+        : `traceroute -n -m 15 -w 1 ${host}`;
+
+    try {
+        const result = await new Promise((resolve, reject) => {
+            exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
+                // Traceroute may "fail" but still produce useful output
+                if (error && !stdout) {
+                    reject(new Error(stderr || error.message));
+                    return;
+                }
+                resolve(stdout);
+            });
+        });
+
+        const hops = [];
+        const lines = result.split('\n');
+
+        for (const line of lines) {
+            // Skip empty lines and header lines
+            if (!line.trim() || line.includes('Tracing route') || line.includes('Trace complete') ||
+                line.includes('over a maximum') || line.includes('traceroute to')) {
+                continue;
+            }
+
+            // Windows format: "  1    <1 ms    <1 ms    <1 ms  192.168.1.1"
+            // Windows timeout: "  2     *        *        *     Request timed out."
+            // Linux format: " 1  192.168.1.1  0.332 ms  0.285 ms  0.267 ms"
+
+            if (isWindows) {
+                // First check for timeout line (all asterisks)
+                if (line.includes('Request timed out') || line.match(/^\s*\d+\s+\*\s+\*\s+\*\s*$/)) {
+                    const hopMatch = line.match(/^\s*(\d+)/);
+                    if (hopMatch) {
+                        hops.push({
+                            hop: parseInt(hopMatch[1]),
+                            ip: '*',
+                            time: null
+                        });
+                    }
+                    continue;
+                }
+
+                // Parse successful hop with IP address
+                // Match: hop_num, then 3 time values (ms or <1 ms or *), then IP at the end
+                const winMatch = line.match(/^\s*(\d+)\s+(.+?)\s+([\d\.]+)\s*$/);
+                if (winMatch) {
+                    const hopNum = parseInt(winMatch[1]);
+                    const timePart = winMatch[2];
+                    const ip = winMatch[3];
+
+                    // Extract times from the middle part
+                    const timeMatches = timePart.match(/(\d+)\s*ms|<1\s*ms/g);
+                    let avgTime = null;
+                    if (timeMatches && timeMatches.length > 0) {
+                        const times = timeMatches.map(t => {
+                            if (t.includes('<1')) return 1;
+                            const num = parseInt(t);
+                            return isNaN(num) ? 1 : num;
+                        });
+                        avgTime = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+                    }
+
+                    hops.push({
+                        hop: hopNum,
+                        ip: ip,
+                        time: avgTime
+                    });
+                }
+            } else {
+                // Linux traceroute parsing
+                const linuxMatch = line.match(/^\s*(\d+)\s+(\S+)\s+(\d+\.?\d*)\s*ms/);
+                if (linuxMatch) {
+                    hops.push({
+                        hop: parseInt(linuxMatch[1]),
+                        ip: linuxMatch[2],
+                        time: Math.round(parseFloat(linuxMatch[3]))
+                    });
+                } else {
+                    // Check for timeout: " 1  * * *"
+                    const timeoutMatch = line.match(/^\s*(\d+)\s+\*\s+\*\s+\*/);
+                    if (timeoutMatch) {
+                        hops.push({
+                            hop: parseInt(timeoutMatch[1]),
+                            ip: '*',
+                            time: null
+                        });
+                    }
+                }
+            }
+        }
+
+        return res.json({
+            success: true,
+            data: {
+                target: host,
+                hops: hops,
+                totalHops: hops.length
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // GET /api/email-auth - Comprehensive email authentication check (SPF, DKIM, DMARC)
 app.get('/api/email-auth', async (req, res) => {
     const host = req.query.host;
