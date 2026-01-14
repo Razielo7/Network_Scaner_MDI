@@ -154,8 +154,10 @@ app.get('/api/ping', async (req, res) => {
     }
 });
 
-// GET /api/system-info - Returns client IP info
+// GET /api/system-info - Returns client IP info and local network interfaces
 app.get('/api/system-info', (req, res) => {
+    const os = require('os');
+
     const clientIp =
         req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
         req.headers['x-real-ip'] ||
@@ -164,12 +166,38 @@ app.get('/api/system-info', (req, res) => {
 
     const userAgent = req.headers['user-agent'] || 'Unknown';
 
+    // Check if client is connecting from localhost
+    const isLocalhost = clientIp === '::1' || clientIp === '127.0.0.1' ||
+        clientIp === '::ffff:127.0.0.1' || clientIp === 'localhost';
+
+    // Get actual network interface IPs for localhost connections
+    let localIPs = [];
+    if (isLocalhost) {
+        const interfaces = os.networkInterfaces();
+        for (const name of Object.keys(interfaces)) {
+            for (const iface of interfaces[name]) {
+                // Skip loopback and non-IPv4 addresses
+                if (iface.family === 'IPv4' && !iface.internal) {
+                    localIPs.push({
+                        ip: iface.address,
+                        interface: name,
+                        type: name.toLowerCase().includes('wi-fi') || name.toLowerCase().includes('wlan') ||
+                            name.toLowerCase().includes('wireless') ? 'WiFi' :
+                            name.toLowerCase().includes('ethernet') || name.toLowerCase().includes('eth') ? 'Ethernet' : 'LAN'
+                    });
+                }
+            }
+        }
+    }
+
     return res.json({
         success: true,
         data: {
             client_ip: clientIp,
             user_agent: userAgent,
-            hostname: 'N/A'
+            hostname: 'N/A',
+            is_localhost: isLocalhost,
+            local_interfaces: localIPs
         }
     });
 });

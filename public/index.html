@@ -1143,6 +1143,7 @@
           const listEl = document.getElementById('connList');
           listEl.innerHTML = '';
 
+          // Try WebRTC first for local IP detection
           const localIPs = await this.getWebRTCLocalIPs();
 
           if (localIPs.length > 0) {
@@ -1151,12 +1152,30 @@
             });
           }
 
+          // Get server-side client info (includes local interfaces for localhost access)
           const clientData = await this.getClientConnectionIP();
-          if (clientData && clientData.data && clientData.data.client_ip) {
-            if (!localIPs.includes(clientData.data.client_ip)) {
-              listEl.innerHTML += `<div style="margin-bottom:2px;">${clientData.data.client_ip} <span style="font-size:0.7rem; color:hsl(var(--text-muted))">(Gateway)</span></div>`;
+
+          if (clientData && clientData.data) {
+            // If accessing from localhost, use server-detected network interfaces
+            if (clientData.data.is_localhost && clientData.data.local_interfaces?.length > 0) {
+              // Clear WebRTC results if we have server-detected interfaces (more reliable)
+              if (localIPs.length === 0) {
+                clientData.data.local_interfaces.forEach(iface => {
+                  if (!localIPs.includes(iface.ip)) {
+                    listEl.innerHTML += `<div style="margin-bottom:2px;">${iface.ip} <span style="font-size:0.7rem; color:hsl(var(--text-muted))">(${iface.type})</span></div>`;
+                  }
+                });
+              }
+            } else if (clientData.data.client_ip && !clientData.data.is_localhost) {
+              // Only show gateway IP if not localhost (remote access)
+              if (!localIPs.includes(clientData.data.client_ip)) {
+                listEl.innerHTML += `<div style="margin-bottom:2px;">${clientData.data.client_ip} <span style="font-size:0.7rem; color:hsl(var(--text-muted))">(Gateway)</span></div>`;
+              }
             }
-          } else if (localIPs.length === 0) {
+          }
+
+          // Fallback if nothing was found
+          if (listEl.innerHTML === '') {
             listEl.innerHTML = '<span style="color:hsl(var(--error))">Unknown</span>';
           }
         } catch (e) {
